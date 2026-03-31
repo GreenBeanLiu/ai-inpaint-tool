@@ -40,6 +40,16 @@ export interface EditJobDetail extends EditJobRecord {
   events: EditJobEventRecord[]
 }
 
+export interface ApiErrorPayload {
+  code: string
+  message: string
+  details: Record<string, unknown> | null
+}
+
+export interface ApiErrorResponse {
+  error: ApiErrorPayload
+}
+
 export interface CreateEditJobInput {
   prompt?: string
   sourceImageUrl: string

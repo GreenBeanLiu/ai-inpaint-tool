@@ -25,7 +25,7 @@ export const Route = createRootRoute({
       },
       {
         name: 'description',
-        content: 'Initial TanStack Start MVP scaffold for AI image inpainting jobs.',
+        content: 'Local AI image inpainting MVP scaffold with Prisma-backed job intake.',
       },
     ],
   }),
@@ -40,11 +40,11 @@ function RootComponent() {
           <header className="app-header">
             <div>
               <div className="app-brand">AI Inpaint Tool</div>
-              <div className="muted">TanStack Start MVP scaffold</div>
+              <div className="muted">Local queue intake with explicit integration gaps</div>
             </div>
             <nav className="actions">
               <Link to="/" activeProps={{ 'aria-current': 'page' }}>
-                New Job
+                Job Intake
               </Link>
             </nav>
           </header>

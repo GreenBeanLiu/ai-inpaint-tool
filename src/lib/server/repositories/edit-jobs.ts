@@ -1,7 +1,7 @@
 import type { EditJob, EditJobEvent, Prisma, PrismaClient } from '@prisma/client'
 import { EditJobStatus } from '@prisma/client'
 
-import { prisma as defaultPrisma } from '@/lib/server/db'
+import { getPrismaClient } from '@/lib/server/db'
 import type {
   CreateEditJobInput,
   EditJobDetail,
@@ -89,7 +89,7 @@ export interface EditJobRepository {
   ): Promise<EditJobDetail>
 }
 
-export function createEditJobRepository(prismaClient: PrismaClient = defaultPrisma): EditJobRepository {
+export function createEditJobRepository(prismaClient: PrismaClient = getPrismaClient()): EditJobRepository {
   return {
     async create(input) {
       const job = await prismaClient.editJob.create({
@@ -104,11 +104,19 @@ export function createEditJobRepository(prismaClient: PrismaClient = defaultPris
           provider: input.provider ?? 'google',
           model: input.model ?? 'gemini-3.1-flash-image',
           status: EditJobStatus.queued,
+          stage: 'accepted',
+          progress: 0,
           events: {
-            create: {
-              type: 'job.queued',
-              message: 'Edit job accepted and queued for processing.',
-            },
+            create: [
+              {
+                type: 'job.accepted',
+                message: 'Edit job accepted and stored in the local queue.',
+              },
+              {
+                type: 'job.dispatch_pending',
+                message: 'Automatic worker dispatch is not implemented in this scaffold yet.',
+              },
+            ],
           },
         },
         include: {

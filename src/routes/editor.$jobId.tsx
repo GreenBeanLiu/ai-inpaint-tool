@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import type { EditJobDetail } from '@/lib/types'
+import type { ApiErrorResponse, EditJobDetail } from '@/lib/types'
 
 export const Route = createFileRoute('/editor/$jobId')({
   component: EditorJobPage,
@@ -24,10 +24,10 @@ function EditorJobPage() {
         const response = await fetch(`/api/edit-jobs/${jobId}`)
         const payload = (await response.json()) as
           | { job: EditJobDetail }
-          | { error: string }
+          | ApiErrorResponse
 
         if (!response.ok || !('job' in payload)) {
-          throw new Error('error' in payload ? payload.error : 'Failed to fetch job')
+          throw new Error('error' in payload ? payload.error.message : 'Failed to fetch job')
         }
 
         if (!cancelled) {
@@ -85,9 +85,14 @@ function EditorJobPage() {
           <span className="status-pill">{job.status}</span>
         </div>
         <p className="muted">
-          This route is the inspection surface for a single edit job. Real-time updates can
-          later plug into SSE, websockets, or a queue dashboard.
+          This page shows the persisted record only. Realtime delivery and background worker
+          execution are not wired, so refresh the page to observe later backend changes.
         </p>
+        <div className="alert">
+          <strong>Current MVP boundary:</strong> the job record is real, but no canvas editor,
+          worker dispatch, Gemini call, R2 upload, Trigger run, or WebSocket push happens from
+          this route yet.
+        </div>
 
         <div className="detail-grid">
           <div className="job-card">
@@ -125,6 +130,19 @@ function EditorJobPage() {
         <div>
           <strong>Error</strong>
           <div>{job.errorMessage ?? 'None'}</div>
+        </div>
+        <div>
+          <strong>Timing</strong>
+          <div>
+            Created {new Date(job.createdAt).toLocaleString()}
+            {job.finishedAt ? `, finished ${new Date(job.finishedAt).toLocaleString()}` : ''}
+          </div>
+        </div>
+        <div>
+          <strong>Images</strong>
+          <div>
+            {job.width && job.height ? `${job.width} x ${job.height}` : 'Unknown dimensions'}
+          </div>
         </div>
       </section>
 

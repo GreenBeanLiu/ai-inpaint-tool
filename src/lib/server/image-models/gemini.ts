@@ -1,3 +1,6 @@
+import { getMissingEnv } from '@/lib/server/env'
+import { ConfigurationError, NotImplementedAppError } from '@/lib/server/errors'
+
 export interface GeminiEditImageInput {
   sourceImageUrl: string
   maskImageUrl: string
@@ -11,6 +14,18 @@ export interface GeminiEditImageResult {
   providerRequestId?: string
 }
 
+const requiredGeminiEnv = ['GOOGLE_GENERATIVE_AI_API_KEY', 'GOOGLE_IMAGE_MODEL']
+
 export async function editImageWithGemini(_input: GeminiEditImageInput): Promise<GeminiEditImageResult> {
-  throw new Error('Not implemented: Gemini image editing integration')
+  const missingEnv = getMissingEnv(requiredGeminiEnv)
+
+  if (missingEnv.length > 0) {
+    throw new ConfigurationError('Gemini image editing integration is not configured', {
+      missingEnv,
+    })
+  }
+
+  throw new NotImplementedAppError('Gemini image editing integration is not wired yet', {
+    requiredEnv: requiredGeminiEnv,
+  })
 }
