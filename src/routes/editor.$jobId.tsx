@@ -89,9 +89,9 @@ function EditorJobPage() {
           execution are not wired, so refresh the page to observe later backend changes.
         </p>
         <div className="alert">
-          <strong>Current MVP boundary:</strong> the job record is real, but no canvas editor,
-          worker dispatch, Gemini call, R2 upload, Trigger run, or WebSocket push happens from
-          this route yet.
+          <strong>Current MVP boundary:</strong> source and mask uploads, job persistence, and
+          Trigger dispatch are real. The Gemini edit call and realtime push delivery still fail
+          or remain absent intentionally until those integrations are finished.
         </div>
 
         <div className="detail-grid">

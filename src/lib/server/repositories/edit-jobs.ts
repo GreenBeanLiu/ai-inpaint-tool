@@ -110,7 +110,7 @@ export function createEditJobRepository(prismaClient: PrismaClient = getPrismaCl
             create: [
               {
                 type: 'job.accepted',
-                message: 'Edit job accepted and stored in the local queue.',
+                message: 'Edit job accepted after source and mask upload.',
               },
             ],
           },

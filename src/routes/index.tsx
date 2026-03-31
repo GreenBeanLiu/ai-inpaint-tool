@@ -1,22 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
-import type {
-  ApiErrorResponse,
-  CreateEditJobInput,
-  EditJobRecord,
-} from '@/lib/types'
+import type { ApiErrorResponse, EditJobRecord } from '@/lib/types'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
 })
 
 function HomePage() {
-  const [form, setForm] = useState<CreateEditJobInput>({
-    prompt: '',
-    sourceImageUrl: '',
-    maskImageUrl: '',
-  })
+  const [prompt, setPrompt] = useState('')
   const [jobs, setJobs] = useState<EditJobRecord[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -65,14 +57,9 @@ function HomePage() {
         throw new Error('error' in payload ? payload.error.message : 'Failed to create job')
       }
 
-      setMessage(
-        [payload.message, payload.dispatch?.message].filter(Boolean).join(' '),
-      )
-      setForm({
-        prompt: '',
-        sourceImageUrl: '',
-        maskImageUrl: '',
-      })
+      setMessage(`Job ${payload.job.id} created and dispatched.`)
+      setPrompt('')
+      event.currentTarget.reset()
       await refreshJobs()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unexpected error')
@@ -98,16 +85,16 @@ function HomePage() {
           <div className="hero-kicker">Working Now</div>
           <h2>Local queue + inspection</h2>
           <p className="muted">
-            `POST /api/edit-jobs` validates HTML form or JSON input and stores queued jobs
-            with event history in SQLite through Prisma.
+            `POST /api/edit-jobs` accepts multipart image uploads, stores the uploaded assets
+            in R2, writes queued jobs to Prisma, and dispatches a real Trigger.dev run.
           </p>
         </article>
         <article className="panel">
           <div className="hero-kicker">Still Gated</div>
           <h2>No fake processing</h2>
           <p className="muted">
-            Worker dispatch, Gemini edits, R2 uploads, Trigger orchestration, and WebSocket
-            updates are intentionally not implemented yet and should report that clearly.
+            The worker will fail honestly until the Gemini edit call is implemented. Realtime
+            updates and advanced editor UX are still intentionally out of scope.
           </p>
         </article>
       </section>
@@ -116,33 +103,27 @@ function HomePage() {
         <section className="panel">
           <h2>Create edit job</h2>
           <p className="muted">
-            Submit public source and mask URLs. The server will validate and persist the job,
-            but it will not attempt model execution yet.
+            Submit a source image, a mask image, and an optional prompt. The server uploads
+            both files to R2 before creating the queued job record.
           </p>
           <form className="stack" onSubmit={handleSubmit}>
             <label className="field">
-              <span>Source image URL</span>
+              <span>Source image</span>
               <input
-                name="sourceImageUrl"
+                accept="image/png,image/jpeg,image/webp"
+                name="image"
                 required
-                type="url"
-                value={form.sourceImageUrl}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, sourceImageUrl: event.target.value }))
-                }
+                type="file"
               />
             </label>
 
             <label className="field">
-              <span>Mask image URL</span>
+              <span>Mask image</span>
               <input
-                name="maskImageUrl"
+                accept="image/png,image/jpeg,image/webp"
+                name="mask"
                 required
-                type="url"
-                value={form.maskImageUrl}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, maskImageUrl: event.target.value }))
-                }
+                type="file"
               />
             </label>
 
@@ -150,10 +131,8 @@ function HomePage() {
               <span>Prompt</span>
               <textarea
                 name="prompt"
-                value={form.prompt ?? ''}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, prompt: event.target.value }))
-                }
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
                 placeholder="Describe what should be filled or replaced."
               />
             </label>
