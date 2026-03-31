@@ -1,0 +1,33 @@
+{
+  "name": "ai-inpaint-tool",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:migrate:dev": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.15.0",
+    "@tanstack/react-router": "^1.131.36",
+    "@tanstack/react-router-devtools": "^1.131.36",
+    "@tanstack/react-start": "^1.131.36",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "prisma": "^6.15.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.2",
+    "vite-tsconfig-paths": "^5.1.4"
+  }
+}
