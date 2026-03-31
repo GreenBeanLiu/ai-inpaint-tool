@@ -1,29 +1,65 @@
+import type { Prisma } from '@prisma/client'
 import { EditJobStatus } from '@prisma/client'
 
+import { AppError } from '@/lib/server/errors'
 import { editImageWithGemini } from '@/lib/server/image-models/gemini'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
 import { uploadAssetToR2 } from '@/lib/server/storage/r2'
 
-export async function runEditImageJob(jobId: string) {
+export const editImageTask = {
+  id: 'edit-image',
+  queue: 'edit-jobs',
+} as const
+
+export interface EditImageTaskPayload {
+  jobId: string
+}
+
+function toJsonSafeValue(value: unknown): Prisma.InputJsonValue | null {
+  if (value == null) {
+    return null
+  }
+
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
+}
+
+function getResultAssetKey(jobId: string, mimeType: string): string {
+  const extension =
+    mimeType === 'image/png'
+      ? 'png'
+      : mimeType === 'image/webp'
+        ? 'webp'
+        : mimeType === 'image/jpeg'
+          ? 'jpg'
+          : 'bin'
+
+  return `results/${jobId}.${extension}`
+}
+
+export async function runEditImageJob(input: EditImageTaskPayload) {
   const repository = createEditJobRepository()
-  const existingJob = await repository.getById(jobId)
+  const existingJob = await repository.getById(input.jobId)
 
   if (!existingJob) {
-    throw new Error(`Edit job not found: ${jobId}`)
+    throw new AppError('Edit job not found', 'NOT_FOUND', 404, {
+      jobId: input.jobId,
+    })
   }
 
   const startedAt = new Date()
 
-  await repository.updateLifecycle(jobId, {
+  await repository.updateLifecycle(input.jobId, {
     status: EditJobStatus.processing,
     stage: 'preparing',
     progress: 5,
     startedAt,
+    errorCode: null,
+    errorMessage: null,
   })
 
   await notifyJobEvent({
-    jobId,
+    jobId: input.jobId,
     type: 'job.processing',
     message: 'Handed off to the image editing worker.',
   })
@@ -37,14 +73,14 @@ export async function runEditImageJob(jobId: string) {
     })
 
     const asset = await uploadAssetToR2({
-      key: `results/${jobId}`,
+      key: getResultAssetKey(input.jobId, modelResult.resultMimeType),
       body: modelResult.resultImageBytes,
       contentType: modelResult.resultMimeType,
     })
 
     const finishedAt = new Date()
 
-    await repository.updateLifecycle(jobId, {
+    const completedJob = await repository.updateLifecycle(input.jobId, {
       status: EditJobStatus.succeeded,
       stage: 'completed',
       progress: 100,
@@ -55,7 +91,7 @@ export async function runEditImageJob(jobId: string) {
     })
 
     await notifyJobEvent({
-      jobId,
+      jobId: input.jobId,
       type: 'job.succeeded',
       message: 'Image edit completed.',
       payloadJson: {
@@ -63,23 +99,31 @@ export async function runEditImageJob(jobId: string) {
         resultImageUrl: asset.url,
       },
     })
+
+    return completedJob
   } catch (error) {
     const finishedAt = new Date()
+    const appError = error instanceof AppError ? error : null
     const message = error instanceof Error ? error.message : 'Unknown processing failure'
 
-    await repository.updateLifecycle(jobId, {
+    await repository.updateLifecycle(input.jobId, {
       status: EditJobStatus.failed,
       stage: 'failed',
-      errorCode: 'PROCESSING_ERROR',
+      errorCode: appError?.code ?? 'PROCESSING_ERROR',
       errorMessage: message,
       processingMs: finishedAt.getTime() - startedAt.getTime(),
       finishedAt,
     })
 
     await notifyJobEvent({
-      jobId,
+      jobId: input.jobId,
       type: 'job.failed',
       message,
+      payloadJson: {
+        code: appError?.code ?? 'PROCESSING_ERROR',
+        status: appError?.status ?? 500,
+        details: toJsonSafeValue(appError?.details ?? null),
+      },
     })
 
     throw error

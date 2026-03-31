@@ -31,30 +31,58 @@ export class NotImplementedAppError extends AppError {
   }
 }
 
-export function toErrorResponse(error: unknown, fallbackMessage: string): Response {
+export class RuntimeAppError extends AppError {
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 'RUNTIME_ERROR', 500, details)
+    this.name = 'RuntimeAppError'
+  }
+}
+
+export class ExternalServiceError extends AppError {
+  constructor(message: string, details?: Record<string, unknown>, status = 502) {
+    super(message, 'EXTERNAL_SERVICE_ERROR', status, details)
+    this.name = 'ExternalServiceError'
+  }
+}
+
+export function serializeError(error: unknown): {
+  code: string
+  message: string
+  status: number
+  details: Record<string, unknown> | null
+} {
   if (error instanceof AppError) {
-    return Response.json(
-      {
-        error: {
-          code: error.code,
-          message: error.message,
-          details: error.details ?? null,
-        },
-      },
-      { status: error.status },
-    )
+    return {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+      details: error.details ?? null,
+    }
   }
 
-  const message = error instanceof Error ? error.message : fallbackMessage
+  return {
+    code: 'INTERNAL_ERROR',
+    message: error instanceof Error ? error.message : 'Unknown error',
+    status: 500,
+    details: null,
+  }
+}
+
+export function toErrorResponse(error: unknown, fallbackMessage: string): Response {
+  const serialized = serializeError(error)
+  const message =
+    serialized.code === 'INTERNAL_ERROR' && serialized.message === 'Unknown error'
+      ? fallbackMessage
+      : serialized.message
 
   return Response.json(
     {
       error: {
-        code: 'INTERNAL_ERROR',
+        code: serialized.code,
         message,
-        details: null,
+        details: serialized.details,
       },
     },
-    { status: 500 },
+    { status: serialized.status },
   )
 }

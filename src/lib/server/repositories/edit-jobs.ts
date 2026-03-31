@@ -112,10 +112,6 @@ export function createEditJobRepository(prismaClient: PrismaClient = getPrismaCl
                 type: 'job.accepted',
                 message: 'Edit job accepted and stored in the local queue.',
               },
-              {
-                type: 'job.dispatch_pending',
-                message: 'Automatic worker dispatch is not implemented in this scaffold yet.',
-              },
             ],
           },
         },

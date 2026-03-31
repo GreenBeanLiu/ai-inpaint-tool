@@ -25,7 +25,10 @@ export async function editImageWithGemini(_input: GeminiEditImageInput): Promise
     })
   }
 
-  throw new NotImplementedAppError('Gemini image editing integration is not wired yet', {
+  throw new NotImplementedAppError('Gemini image editing call is not implemented yet', {
     requiredEnv: requiredGeminiEnv,
+    provider: 'google',
+    operation: 'image-edit',
+    modelEnv: 'GOOGLE_IMAGE_MODEL',
   })
 }
