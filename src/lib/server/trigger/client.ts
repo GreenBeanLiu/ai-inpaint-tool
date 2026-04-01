@@ -42,8 +42,7 @@ export async function triggerTask<TPayload>(
     body: JSON.stringify({
       payload,
       options: {
-        queue: definition.queue,
-        version: definition.version,
+        ...(definition.version ? { version: definition.version } : {}),
       },
     }),
   })

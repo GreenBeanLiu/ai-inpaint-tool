@@ -21,7 +21,7 @@ import {
   requireMultipartImageFile,
   requireMultipartTextField,
 } from '@/lib/server/validation/edit-jobs'
-import { editImageTask } from '@/trigger/edit-image'
+import { editImageTask } from '@/lib/server/trigger/tasks'
 
 function toJsonSafeValue(value: unknown): Prisma.InputJsonValue | null {
   if (value == null) {

@@ -5,28 +5,27 @@ Incremental TanStack Start + Prisma scaffold for an AI image inpainting workflow
 ## Stack
 
 - TanStack Start with React and TypeScript
-- Prisma with SQLite for local development
+- Prisma with PostgreSQL
 - `POST /api/edit-jobs` intake that validates multipart uploads, stores uploaded assets in R2, creates jobs in Prisma, and attempts Trigger dispatch
 - Real Cloudflare R2 S3-compatible upload/download helpers with explicit configuration failures
-- Honest Gemini/worker scaffolding that fails clearly until the exact edit call is implemented
+- Real Trigger task project shape plus an honest Gemini worker path that fails clearly when exact masked inpainting is unsupported
 
 ## Setup
 
 1. Copy `.env.example` to `.env`.
 2. Install dependencies with `npm install`.
 3. Generate Prisma client with `npm run prisma:generate`.
-4. Create the local database schema with `npm run prisma:push`.
+4. Create the database schema with `npm run prisma:push`.
 5. Start the app with `npm run dev`.
+6. In a separate shell, start the Trigger worker with `npm run trigger:dev`.
 
 ## Required Environment
 
 Database:
 
 ```dotenv
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://user:password@host:5432/database"
 ```
-
-This resolves to `prisma/dev.db` because the Prisma schema lives in `prisma/schema.prisma`.
 
 Cloudflare R2 upload/download and public result URLs:
 
@@ -42,6 +41,7 @@ Trigger.dev dispatch from `POST /api/edit-jobs`:
 
 ```dotenv
 TRIGGER_API_URL="https://api.trigger.dev"
+TRIGGER_PROJECT_REF=""
 TRIGGER_SECRET_KEY=""
 ```
 
@@ -67,13 +67,14 @@ What works now:
 - Source and mask uploads are written to Cloudflare R2 for real when R2 env vars are configured
 - Valid jobs are persisted with Prisma after upload succeeds, and initial events are recorded
 - `POST /api/edit-jobs` attempts a real Trigger.dev dispatch with the persisted `jobId`
-- Job list and job detail pages read persisted state back from SQLite
-- Worker code updates lifecycle state honestly and uploads real result bytes to R2 if the model call succeeds
+- The repo now has a real Trigger.dev project layout via [trigger.config.ts](/Users/lijie/Works/ai-inpaint-tool/trigger.config.ts) and [trigger/edit-image.ts](/Users/lijie/Works/ai-inpaint-tool/trigger/edit-image.ts)
+- Job list and job detail pages read persisted state back from Postgres
+- Worker code updates lifecycle state honestly, downloads source and mask assets, and uploads real result bytes to R2 if the model call succeeds
 - R2 helpers perform real signed PUT/GET requests when the required env is configured
 
 What does not work yet:
 
-- The exact Gemini image generation/inpainting call is still not implemented
+- The documented Gemini API-key image editing path does not expose a separate binary mask input for exact inpainting semantics, so masked jobs fail with an explicit worker error instead of producing a fake or mask-ignoring output
 - No WebSocket or SSE push updates
 
 The app should fail explicitly for missing configuration or unimplemented integrations instead of pretending a job completed successfully.
@@ -82,6 +83,6 @@ The app should fail explicitly for missing configuration or unimplemented integr
 
 - `POST /api/edit-jobs` uploads source and mask assets first, then creates the database record, then dispatches Trigger.dev. If dispatch fails, the API returns a structured error response and includes the created job in the error details.
 - Supported upload MIME types are `image/png`, `image/jpeg`, and `image/webp`, with a 20 MB limit per uploaded file.
-- The Trigger task id used by the backend is `edit-image`.
+- The Trigger task id used by the backend is `edit-image`, and the registered worker queue name is `edit-jobs`.
 - Result asset URLs come from `R2_PUBLIC_BASE_URL`, while R2 upload/download uses the S3-compatible endpoint derived from `R2_ACCOUNT_ID`.
-- Local Prisma development defaults to SQLite via `prisma/dev.db`.
+- Google’s current Gemini image docs describe text+image editing and image output, but not exact binary-mask inpainting on the API-key path. The worker preserves honest failure semantics until that path exists or a different provider/model path is configured.
