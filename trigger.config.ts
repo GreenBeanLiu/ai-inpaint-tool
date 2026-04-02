@@ -10,4 +10,5 @@ export default defineConfig({
   project,
   runtime: 'node',
   dirs: ['./trigger'],
+  maxDuration: 300,
 })
