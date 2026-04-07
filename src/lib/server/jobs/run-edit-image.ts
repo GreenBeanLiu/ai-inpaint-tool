@@ -2,7 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { EditJobStatus } from '@prisma/client'
 
 import { AppError } from '@/lib/server/errors'
-import { editImageWithGemini } from '@/lib/server/image-models/gemini'
+import { editImageWithProvider } from '@/lib/server/image-models'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
 import { uploadAssetToR2 } from '@/lib/server/storage/r2'
@@ -62,7 +62,8 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       progress: 25,
     })
 
-    const modelResult = await editImageWithGemini({
+    const modelResult = await editImageWithProvider({
+      provider: existingJob.provider,
       sourceImageUrl: existingJob.sourceImageUrl,
       maskImageUrl: existingJob.maskImageUrl,
       prompt: existingJob.prompt ?? undefined,

@@ -8,7 +8,7 @@ Incremental TanStack Start + Prisma scaffold for an AI image inpainting workflow
 - Prisma with PostgreSQL
 - `POST /api/edit-jobs` intake that validates multipart uploads, stores uploaded assets in R2, creates jobs in Prisma, and attempts Trigger dispatch
 - Real Cloudflare R2 S3-compatible upload/download helpers with explicit configuration failures
-- Real Trigger task project shape plus an honest Gemini worker path that fails clearly when exact masked inpainting is unsupported
+- Real Trigger task project shape plus a provider-adapter worker path that currently defaults to Gemini and fails clearly when exact masked inpainting is unsupported
 
 ## Setup
 
@@ -45,11 +45,18 @@ TRIGGER_PROJECT_REF=""
 TRIGGER_SECRET_KEY=""
 ```
 
-Gemini image editing worker:
+Gemini image editing worker (default wired provider):
 
 ```dotenv
 GOOGLE_GENERATIVE_AI_API_KEY=""
 GOOGLE_IMAGE_MODEL="gemini-3.1-flash-image"
+```
+
+Optional future provider slots:
+
+```dotenv
+OPENAI_API_KEY=""
+OPENAI_IMAGE_MODEL="gpt-image-1"
 ```
 
 Optional:
@@ -74,7 +81,8 @@ What works now:
 
 What does not work yet:
 
-- The documented Gemini API-key image editing path does not expose a separate binary mask input for exact inpainting semantics, so masked jobs fail with an explicit worker error instead of producing a fake or mask-ignoring output
+- The worker now resolves providers through an adapter layer, but the default Gemini implementation still does not expose a separate binary mask input for exact inpainting semantics, so masked jobs fail with an explicit worker error instead of producing a fake or mask-ignoring output
+- A future OpenAI provider slot is wired as a placeholder so a real mask-capable integration can be added without reworking the job runner again
 - No WebSocket or SSE push updates
 
 The app should fail explicitly for missing configuration or unimplemented integrations instead of pretending a job completed successfully.
