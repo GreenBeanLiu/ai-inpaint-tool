@@ -4,6 +4,7 @@ export interface ImageEditInput {
   sourceImageUrl: string
   maskImageUrl: string
   prompt?: string
+  model?: string
   mimeType?: string
 }
 

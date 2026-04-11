@@ -50,16 +50,16 @@ export const createEditJobInputSchema = z.object({
   width: optionalPositiveInt,
   height: optionalPositiveInt,
   fileSize: optionalNonNegativeInt,
-  provider: optionalTrimmedString.default('google'),
-  model: optionalTrimmedString.default('gemini-3.1-flash-image'),
+  provider: optionalTrimmedString.default('openai'),
+  model: optionalTrimmedString.default('gpt-image-1.5'),
 })
 
 export type CreateEditJobInputParsed = z.infer<typeof createEditJobInputSchema>
 
 export const createEditJobMultipartFieldsSchema = z.object({
   prompt: optionalTrimmedString,
-  provider: optionalTrimmedString.default('google'),
-  model: optionalTrimmedString.default('gemini-3.1-flash-image'),
+  provider: optionalTrimmedString.default('openai'),
+  model: optionalTrimmedString.default('gpt-image-1.5'),
 })
 
 export type CreateEditJobMultipartFieldsParsed = z.infer<

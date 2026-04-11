@@ -72,10 +72,10 @@ function HomePage() {
     <div className="hero">
       <section className="hero-card">
         <div className="hero-kicker">Closed Loop Intake</div>
-        <h1 className="hero-title">Create real local edit jobs before the model pipeline exists.</h1>
+        <h1 className="hero-title">Create real local masked edit jobs with an OpenAI worker path.</h1>
         <p className="muted">
           This MVP round validates intake, writes queued jobs to Prisma-backed storage,
-          and exposes the unfinished seams for Gemini, R2, Trigger, and realtime delivery
+          and runs a real OpenAI image edit worker for supported masked inpainting jobs
           without faking generated results.
         </p>
       </section>
@@ -83,18 +83,20 @@ function HomePage() {
       <section className="hero-grid">
         <article className="panel">
           <div className="hero-kicker">Working Now</div>
-          <h2>Local queue + inspection</h2>
+          <h2>Real masked edit worker</h2>
           <p className="muted">
             `POST /api/edit-jobs` accepts multipart image uploads, stores the uploaded assets
-            in R2, writes queued jobs to Prisma, and dispatches a real Trigger.dev run.
+            in R2, writes queued jobs to Prisma, dispatches a real Trigger.dev run, and
+            executes OpenAI image edits when the upload constraints are satisfied.
           </p>
         </article>
         <article className="panel">
-          <div className="hero-kicker">Still Gated</div>
-          <h2>No fake processing</h2>
+          <div className="hero-kicker">Still Strict</div>
+          <h2>Honest failures only</h2>
           <p className="muted">
-            The worker will fail honestly until the Gemini edit call is implemented. Realtime
-            updates and advanced editor UX are still intentionally out of scope.
+            Unsupported providers, mismatched source and mask formats, missing env, and
+            non-mask-capable paths fail explicitly. Realtime updates and advanced editor UX
+            are still intentionally out of scope.
           </p>
         </article>
       </section>
@@ -104,7 +106,8 @@ function HomePage() {
           <h2>Create edit job</h2>
           <p className="muted">
             Submit a source image, a mask image, and an optional prompt. The server uploads
-            both files to R2 before creating the queued job record.
+            both files to R2 before creating the queued job record. The default provider is
+            OpenAI masked editing, which currently expects matching PNG or WEBP uploads.
           </p>
           <form className="stack" onSubmit={handleSubmit}>
             <label className="field">
@@ -154,8 +157,8 @@ function HomePage() {
             </button>
           </div>
           <p className="muted">
-            Jobs remain queued after creation. Use the detail page to inspect lifecycle state
-            and recorded events.
+            Use the detail page to inspect lifecycle state, provider/model selection, and
+            recorded worker events.
           </p>
           {loadError ? <div className="alert alert-error">{loadError}</div> : null}
           <div className="list">

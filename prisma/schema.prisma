@@ -28,8 +28,8 @@ model EditJob {
   width           Int?
   height          Int?
   fileSize        Int?
-  provider        String          @default("google")
-  model           String          @default("gemini-3.1-flash-image")
+  provider        String          @default("openai")
+  model           String          @default("gpt-image-1.5")
   errorCode       String?
   errorMessage    String?
   processingMs    Int?

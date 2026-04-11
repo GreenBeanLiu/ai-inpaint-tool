@@ -12,6 +12,8 @@ import {
   serializeError,
   toErrorResponse,
 } from '@/lib/server/errors'
+import { assertProviderSupportsMaskInpainting } from '@/lib/server/image-models'
+import { assertOpenAiMaskedEditUploadCompatibility } from '@/lib/server/image-models/providers/openai'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
 import { uploadAssetToR2 } from '@/lib/server/storage/r2'
@@ -106,6 +108,8 @@ export const Route = createFileRoute('/api/edit-jobs')({
       POST: async ({ request }) => {
         try {
           const { fields, sourceImage, maskImage } = await parseCreateEditJobRequest(request)
+          assertProviderSupportsMaskInpainting(fields.provider)
+
           const [sourceBuffer, maskBuffer] = await Promise.all([
             sourceImage.arrayBuffer(),
             maskImage.arrayBuffer(),
@@ -124,6 +128,10 @@ export const Route = createFileRoute('/api/edit-jobs')({
               image: sourceMetadata,
               mask: maskMetadata,
             })
+          }
+
+          if (fields.provider === 'openai') {
+            assertOpenAiMaskedEditUploadCompatibility(sourceImage.type, maskImage.type)
           }
 
           const [sourceAsset, maskAsset] = await Promise.all([

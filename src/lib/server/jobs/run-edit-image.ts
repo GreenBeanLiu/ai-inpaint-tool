@@ -67,6 +67,7 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       sourceImageUrl: existingJob.sourceImageUrl,
       maskImageUrl: existingJob.maskImageUrl,
       prompt: existingJob.prompt ?? undefined,
+      model: existingJob.model,
       mimeType: existingJob.sourceMimeType ?? undefined,
     })
 

@@ -89,9 +89,9 @@ function EditorJobPage() {
           execution are not wired, so refresh the page to observe later backend changes.
         </p>
         <div className="alert">
-          <strong>Current MVP boundary:</strong> source and mask uploads, job persistence, and
-          Trigger dispatch are real. The Gemini edit call and realtime push delivery still fail
-          or remain absent intentionally until those integrations are finished.
+          <strong>Current MVP boundary:</strong> source and mask uploads, job persistence,
+          Trigger dispatch, and the OpenAI masked edit worker path are real. Unsupported
+          providers and upload shapes fail explicitly instead of being coerced.
         </div>
 
         <div className="detail-grid">

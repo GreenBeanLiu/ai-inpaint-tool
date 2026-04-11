@@ -3,7 +3,7 @@ import {
   createGeminiImageEditProvider,
   GeminiImageEditProvider,
 } from '@/lib/server/image-models/providers/gemini'
-import { createOpenAiPlaceholderImageEditProvider } from '@/lib/server/image-models/providers/openai-placeholder'
+import { createOpenAiImageEditProvider } from '@/lib/server/image-models/providers/openai'
 import type {
   ImageEditInput,
   ImageEditProvider,
@@ -12,7 +12,7 @@ import type {
 
 const providerFactories = {
   google: () => createGeminiImageEditProvider(),
-  openai: () => createOpenAiPlaceholderImageEditProvider(),
+  openai: () => createOpenAiImageEditProvider(),
 } satisfies Record<string, () => ImageEditProvider>
 
 export type SupportedImageEditProviderId = keyof typeof providerFactories
