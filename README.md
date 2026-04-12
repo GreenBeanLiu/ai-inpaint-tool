@@ -20,6 +20,19 @@ Incremental TanStack Start + Prisma scaffold for an AI image inpainting workflow
 6. In a separate shell, start the Trigger worker with `npm run trigger:dev`.
 7. Run `npm run verify:runtime` after `npm run build` to execute an in-process runtime preflight without opening a local port.
 
+## Railway
+
+This repo now includes [railway.json](/Users/lijie/Works/ai-inpaint-tool/railway.json), which tells Railway to use a Node build/deploy flow instead of falling back to a static/Caddy-style deployment.
+
+Use these commands in Railway:
+
+- Build command: `npm run build`
+- Start command: `npm start`
+
+Production startup is handled by [scripts/start-production.mjs](/Users/lijie/Works/ai-inpaint-tool/scripts/start-production.mjs). It imports the built TanStack Start server entry at `dist/server/server.js`, binds a Node HTTP server on `0.0.0.0`, and honors Railway's `PORT` environment variable automatically.
+
+If the service already has dashboard-level overrides, make sure they match the commands above or remove them so the checked-in `railway.json` settings apply cleanly.
+
 ## Required Environment
 
 Database:
