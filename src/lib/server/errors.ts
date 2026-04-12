@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client'
+
 export class AppError extends Error {
   constructor(
     message: string,
@@ -45,6 +47,41 @@ export class ExternalServiceError extends AppError {
   }
 }
 
+function serializePrismaError(error: unknown): {
+  code: string
+  message: string
+  status: number
+  details: Record<string, unknown> | null
+} | null {
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    return {
+      code: 'DATABASE_CONNECTION_ERROR',
+      message: 'Database connection failed. Check DATABASE_URL and make sure PostgreSQL is reachable.',
+      status: 503,
+      details: {
+        service: 'database',
+        prismaErrorCode: error.errorCode ?? null,
+      },
+    }
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2021' || error.code === 'P2022') {
+      return {
+        code: 'DATABASE_SCHEMA_ERROR',
+        message: 'Database schema is missing required tables or columns. Run `npm run prisma:push` against the configured database.',
+        status: 500,
+        details: {
+          service: 'database',
+          prismaErrorCode: error.code,
+        },
+      }
+    }
+  }
+
+  return null
+}
+
 export function serializeError(error: unknown): {
   code: string
   message: string
@@ -58,6 +95,12 @@ export function serializeError(error: unknown): {
       status: error.status,
       details: error.details ?? null,
     }
+  }
+
+  const prismaError = serializePrismaError(error)
+
+  if (prismaError) {
+    return prismaError
   }
 
   return {

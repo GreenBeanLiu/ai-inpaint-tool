@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { ImagePreviewCard } from '@/components/image-preview-card'
-import type { ApiErrorResponse, EditJobRecord } from '@/lib/types'
+import { RuntimeStatusPanel } from '@/components/runtime-status-panel'
+import type { ApiErrorResponse, EditJobRecord, RuntimeCheckReport } from '@/lib/types'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -58,16 +59,42 @@ function HomePage() {
   const [maskFile, setMaskFile] = useState<File | null>(null)
   const [jobs, setJobs] = useState<EditJobRecord[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRefreshingRuntime, setIsRefreshingRuntime] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
   const sourcePreviewUrl = useObjectUrl(sourceFile)
   const maskPreviewUrl = useObjectUrl(maskFile)
 
   useEffect(() => {
+    void refreshRuntimeCheck().catch((error) => {
+      setRuntimeError(error instanceof Error ? error.message : 'Failed to load runtime readiness')
+    })
     void refreshJobs().catch((error) => {
       setLoadError(error instanceof Error ? error.message : 'Failed to load jobs')
     })
   }, [])
+
+  async function refreshRuntimeCheck() {
+    setIsRefreshingRuntime(true)
+
+    try {
+      const response = await fetch('/api/runtime-check')
+      const payload = (await response.json()) as RuntimeCheckReport | ApiErrorResponse
+
+      if (!response.ok || !('checkedAt' in payload)) {
+        const errorMessage =
+          'error' in payload ? payload.error.message : 'Failed to load runtime readiness'
+        throw new Error(errorMessage)
+      }
+
+      setRuntimeReport(payload)
+      setRuntimeError(null)
+    } finally {
+      setIsRefreshingRuntime(false)
+    }
+  }
 
   async function refreshJobs() {
     const response = await fetch('/api/edit-jobs')
@@ -153,6 +180,17 @@ function HomePage() {
     }
   }
 
+  const createJobBlockedReason = runtimeReport?.overall.canCreateJob
+    ? null
+    : runtimeReport?.overall.blockers[0] ?? null
+  const listJobsBlockedReason = runtimeReport?.overall.canListJobs
+    ? null
+    : runtimeReport?.overall.blockers.find((blocker) =>
+        blocker.toLowerCase().includes('database'),
+      ) ??
+      runtimeReport?.overall.blockers[0] ??
+      null
+
   return (
     <div className="hero">
       <section className="hero-card">
@@ -185,6 +223,13 @@ function HomePage() {
           </p>
         </article>
       </section>
+
+      <RuntimeStatusPanel
+        error={runtimeError}
+        isLoading={isRefreshingRuntime}
+        onRefresh={refreshRuntimeCheck}
+        report={runtimeReport}
+      />
 
       <div className="hero-grid">
         <section className="panel">
@@ -248,9 +293,18 @@ function HomePage() {
             </label>
 
             <div className="actions">
-              <button className="button" disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Submitting...' : 'Create queued job'}
+              <button
+                className="button"
+                disabled={isSubmitting || Boolean(createJobBlockedReason)}
+                type="submit"
+              >
+                {isSubmitting
+                  ? 'Submitting...'
+                  : createJobBlockedReason
+                    ? 'Creation blocked by runtime config'
+                    : 'Create queued job'}
               </button>
+              {createJobBlockedReason ? <span className="muted">{createJobBlockedReason}</span> : null}
               {message ? <span className="muted">{message}</span> : null}
             </div>
           </form>
@@ -267,6 +321,9 @@ function HomePage() {
             Use the detail page to inspect lifecycle state, provider/model selection, and
             recorded worker events.
           </p>
+          {listJobsBlockedReason ? (
+            <div className="alert alert-error">{listJobsBlockedReason}</div>
+          ) : null}
           {loadError ? <div className="alert alert-error">{loadError}</div> : null}
           <div className="list">
             {jobs.length === 0 ? (

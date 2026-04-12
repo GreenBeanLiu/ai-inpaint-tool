@@ -18,6 +18,7 @@ Incremental TanStack Start + Prisma scaffold for an AI image inpainting workflow
 4. Create the database schema with `npm run prisma:push`.
 5. Start the app with `npm run dev`.
 6. In a separate shell, start the Trigger worker with `npm run trigger:dev`.
+7. Run `npm run verify:runtime` after `npm run build` to execute an in-process runtime preflight without opening a local port.
 
 ## Required Environment
 
@@ -97,6 +98,13 @@ What does not work yet:
 - No WebSocket or SSE push updates
 
 The app should fail explicitly for missing configuration or unimplemented integrations instead of pretending a job completed successfully.
+
+## Runtime Check
+
+- `GET /api/runtime-check` reports whether the local runtime is ready for job listing, job creation, Trigger worker startup, and a full default OpenRouter job.
+- The homepage now surfaces the same runtime check so placeholder local config is obvious before you try to create a job or debug a failed refresh.
+- `npm run verify:runtime` imports the built server directly, requests `/`, `/api/runtime-check`, `/api/edit-jobs`, and only attempts a real multipart job submission when the preflight says creation is possible.
+- The runtime check flags the example `DATABASE_URL` placeholder before Prisma tries to connect, so local verification failures are easier to diagnose.
 
 ## Notes
 

@@ -50,6 +50,33 @@ export interface ApiErrorResponse {
   error: ApiErrorPayload
 }
 
+export type RuntimeSectionStatus = 'ready' | 'blocked'
+
+export interface RuntimeSection {
+  status: RuntimeSectionStatus
+  summary: string
+  details: Record<string, unknown> | null
+}
+
+export interface RuntimeCheckOverall {
+  canListJobs: boolean
+  canCreateJob: boolean
+  canStartWorker: boolean
+  canCompleteDefaultOpenRouterJob: boolean
+  blockers: string[]
+}
+
+export interface RuntimeCheckReport {
+  checkedAt: string
+  app: RuntimeSection
+  database: RuntimeSection
+  storage: RuntimeSection
+  triggerDispatch: RuntimeSection
+  triggerWorker: RuntimeSection
+  defaultProvider: RuntimeSection
+  overall: RuntimeCheckOverall
+}
+
 export interface CreateEditJobInput {
   prompt?: string
   sourceImageUrl: string
