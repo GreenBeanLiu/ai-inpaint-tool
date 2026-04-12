@@ -4,15 +4,18 @@ import {
   GeminiImageEditProvider,
 } from '@/lib/server/image-models/providers/gemini'
 import { createOpenAiImageEditProvider } from '@/lib/server/image-models/providers/openai'
+import { createOpenRouterImageEditProvider } from '@/lib/server/image-models/providers/openrouter'
 import type {
   ImageEditInput,
   ImageEditProvider,
   ImageEditResult,
+  MaskedEditUploadCompatibilityInput,
 } from '@/lib/server/image-models/shared'
 
 const providerFactories = {
   google: () => createGeminiImageEditProvider(),
   openai: () => createOpenAiImageEditProvider(),
+  openrouter: () => createOpenRouterImageEditProvider(),
 } satisfies Record<string, () => ImageEditProvider>
 
 export type SupportedImageEditProviderId = keyof typeof providerFactories
@@ -62,6 +65,14 @@ export function assertProviderSupportsMaskInpainting(providerId: string) {
       supportedProviders: listImageEditProviders(),
     })
   }
+}
+
+export function assertProviderMaskedEditUploadCompatibility(
+  providerId: string,
+  input: MaskedEditUploadCompatibilityInput,
+) {
+  const provider = createImageEditProvider(providerId)
+  provider.assertMaskedEditUploadCompatibility(input)
 }
 
 export { GeminiImageEditProvider }

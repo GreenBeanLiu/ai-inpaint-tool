@@ -8,8 +8,13 @@ import type {
   ImageEditInput,
   ImageEditProvider,
   ImageEditResult,
+  MaskedEditUploadCompatibilityInput,
 } from '@/lib/server/image-models/shared'
-import { downloadRemoteImage } from '@/lib/server/image-models/shared'
+import {
+  downloadRemoteImage,
+  parseJsonResponseBody,
+  toBase64,
+} from '@/lib/server/image-models/shared'
 
 const requiredGeminiEnv = ['GOOGLE_GENERATIVE_AI_API_KEY', 'GOOGLE_IMAGE_MODEL']
 
@@ -39,24 +44,6 @@ function getGeminiConfig() {
   return {
     apiKey: requireEnv('GOOGLE_GENERATIVE_AI_API_KEY'),
     model: requireEnv('GOOGLE_IMAGE_MODEL'),
-  }
-}
-
-function toBase64(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString('base64')
-}
-
-function parseGeminiResponseBody(responseText: string): unknown {
-  if (!responseText) {
-    return null
-  }
-
-  try {
-    return JSON.parse(responseText) as unknown
-  } catch {
-    return {
-      rawText: responseText.slice(0, 2000),
-    }
   }
 }
 
@@ -136,7 +123,7 @@ async function runPromptOnlyGeminiEdit(input: ImageEditInput): Promise<ImageEdit
   )
 
   const responseText = await response.text()
-  const responseBody = parseGeminiResponseBody(responseText)
+  const responseBody = parseJsonResponseBody(responseText)
 
   if (!response.ok) {
     throw new ExternalServiceError('Gemini image edit request failed', {
@@ -174,6 +161,8 @@ export class GeminiImageEditProvider implements ImageEditProvider {
   supportsMaskInpainting(): boolean {
     return false
   }
+
+  assertMaskedEditUploadCompatibility(_input: MaskedEditUploadCompatibilityInput): void {}
 
   async editImage(input: ImageEditInput): Promise<ImageEditResult> {
     getGeminiConfig()

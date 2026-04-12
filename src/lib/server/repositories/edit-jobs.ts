@@ -2,6 +2,7 @@ import type { EditJob, EditJobEvent, Prisma, PrismaClient } from '@prisma/client
 import { EditJobStatus } from '@prisma/client'
 
 import { getPrismaClient } from '@/lib/server/db'
+import { resolveImageEditDefaults } from '@/lib/server/image-models/defaults'
 import type {
   CreateEditJobInput,
   EditJobDetail,
@@ -92,6 +93,11 @@ export interface EditJobRepository {
 export function createEditJobRepository(prismaClient: PrismaClient = getPrismaClient()): EditJobRepository {
   return {
     async create(input) {
+      const defaults = resolveImageEditDefaults({
+        provider: input.provider,
+        model: input.model,
+      })
+
       const job = await prismaClient.editJob.create({
         data: {
           prompt: input.prompt,
@@ -101,8 +107,8 @@ export function createEditJobRepository(prismaClient: PrismaClient = getPrismaCl
           width: input.width,
           height: input.height,
           fileSize: input.fileSize,
-          provider: input.provider ?? 'openai',
-          model: input.model ?? 'gpt-image-1.5',
+          provider: defaults.provider,
+          model: defaults.model,
           status: EditJobStatus.queued,
           stage: 'accepted',
           progress: 0,

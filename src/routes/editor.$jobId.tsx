@@ -90,8 +90,8 @@ function EditorJobPage() {
         </p>
         <div className="alert">
           <strong>Current MVP boundary:</strong> source and mask uploads, job persistence,
-          Trigger dispatch, and the OpenAI masked edit worker path are real. Unsupported
-          providers and upload shapes fail explicitly instead of being coerced.
+          Trigger dispatch, and the wired OpenRouter and OpenAI worker paths are real.
+          Unsupported providers and upload shapes fail explicitly instead of being coerced.
         </div>
 
         <div className="detail-grid">

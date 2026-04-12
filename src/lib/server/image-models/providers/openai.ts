@@ -1,17 +1,23 @@
 import { getEnv, getMissingEnv, requireEnv } from '@/lib/server/env'
 import { ConfigurationError, ExternalServiceError, InputError } from '@/lib/server/errors'
+import { DEFAULT_OPENAI_IMAGE_MODEL } from '@/lib/server/image-models/defaults'
 import type {
   ImageEditInput,
   ImageEditProvider,
   ImageEditResult,
+  MaskedEditUploadCompatibilityInput,
 } from '@/lib/server/image-models/shared'
-import { downloadRemoteImage } from '@/lib/server/image-models/shared'
+import {
+  downloadRemoteImage,
+  imageMimeTypeToExtension,
+  normalizeMimeType,
+  parseJsonResponseBody,
+} from '@/lib/server/image-models/shared'
 
 const requiredOpenAiEnv = ['OPENAI_API_KEY'] as const
 
 const OPENAI_IMAGES_EDIT_API_URL = 'https://api.openai.com/v1/images/edits'
 const OPENAI_IMAGE_EDIT_DOCS_URL = 'https://platform.openai.com/docs/guides/image-generation'
-const DEFAULT_OPENAI_IMAGE_MODEL = 'gpt-image-1.5'
 
 const openAiMaskedEditMimeTypes = ['image/png', 'image/webp'] as const
 
@@ -25,10 +31,6 @@ interface OpenAiImageData {
   outputFormat?: string
 }
 
-function normalizeMimeType(mimeType: string | undefined): string {
-  return mimeType?.split(';', 1)[0]?.trim().toLowerCase() ?? ''
-}
-
 function isSupportedOpenAiMaskedEditMimeType(
   mimeType: string,
 ): mimeType is OpenAiMaskedEditMimeType {
@@ -36,11 +38,10 @@ function isSupportedOpenAiMaskedEditMimeType(
 }
 
 export function assertOpenAiMaskedEditUploadCompatibility(
-  sourceMimeType: string,
-  maskMimeType: string,
+  input: MaskedEditUploadCompatibilityInput,
 ) {
-  const normalizedSourceMimeType = normalizeMimeType(sourceMimeType)
-  const normalizedMaskMimeType = normalizeMimeType(maskMimeType)
+  const normalizedSourceMimeType = normalizeMimeType(input.sourceMimeType)
+  const normalizedMaskMimeType = normalizeMimeType(input.maskMimeType)
 
   if (normalizedSourceMimeType !== normalizedMaskMimeType) {
     throw new InputError('OpenAI masked image edits require the source image and mask to use the same MIME type', {
@@ -76,20 +77,6 @@ function getOpenAiConfig(preferredModel: string | undefined) {
   return {
     apiKey: requireEnv('OPENAI_API_KEY'),
     model: preferredModel?.trim() || getEnv('OPENAI_IMAGE_MODEL') || DEFAULT_OPENAI_IMAGE_MODEL,
-  }
-}
-
-function parseOpenAiResponseBody(responseText: string): unknown {
-  if (!responseText) {
-    return null
-  }
-
-  try {
-    return JSON.parse(responseText) as unknown
-  } catch {
-    return {
-      rawText: responseText.slice(0, 2000),
-    }
   }
 }
 
@@ -136,16 +123,9 @@ function getOpenAiImageData(responseBody: unknown): OpenAiImageData {
 }
 
 function toFile(bytes: Uint8Array, mimeType: string, basename: 'source' | 'mask'): File {
-  const extension =
-    mimeType === 'image/png'
-      ? 'png'
-      : mimeType === 'image/webp'
-        ? 'webp'
-        : mimeType === 'image/jpeg'
-          ? 'jpg'
-          : 'bin'
-
-  return new File([Buffer.from(bytes)], `${basename}.${extension}`, { type: mimeType })
+  return new File([Buffer.from(bytes)], `${basename}.${imageMimeTypeToExtension(mimeType)}`, {
+    type: mimeType,
+  })
 }
 
 export class OpenAiImageEditProvider implements ImageEditProvider {
@@ -154,6 +134,10 @@ export class OpenAiImageEditProvider implements ImageEditProvider {
 
   supportsMaskInpainting(): boolean {
     return true
+  }
+
+  assertMaskedEditUploadCompatibility(input: MaskedEditUploadCompatibilityInput): void {
+    assertOpenAiMaskedEditUploadCompatibility(input)
   }
 
   async editImage(input: ImageEditInput): Promise<ImageEditResult> {
@@ -171,7 +155,10 @@ export class OpenAiImageEditProvider implements ImageEditProvider {
       }),
     ])
 
-    assertOpenAiMaskedEditUploadCompatibility(sourceImage.mimeType, maskImage.mimeType)
+    assertOpenAiMaskedEditUploadCompatibility({
+      sourceMimeType: sourceImage.mimeType,
+      maskMimeType: maskImage.mimeType,
+    })
 
     const prompt =
       input.prompt?.trim() ||
@@ -192,7 +179,7 @@ export class OpenAiImageEditProvider implements ImageEditProvider {
     })
 
     const responseText = await response.text()
-    const responseBody = parseOpenAiResponseBody(responseText)
+    const responseBody = parseJsonResponseBody(responseText)
 
     if (!response.ok) {
       throw new ExternalServiceError('OpenAI image edit request failed', {

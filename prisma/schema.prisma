@@ -28,8 +28,8 @@ model EditJob {
   width           Int?
   height          Int?
   fileSize        Int?
-  provider        String          @default("openai")
-  model           String          @default("gpt-image-1.5")
+  provider        String          @default("openrouter")
+  model           String          @default("openai/gpt-5-image-mini")
   errorCode       String?
   errorMessage    String?
   processingMs    Int?

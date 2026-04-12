@@ -72,10 +72,10 @@ function HomePage() {
     <div className="hero">
       <section className="hero-card">
         <div className="hero-kicker">Closed Loop Intake</div>
-        <h1 className="hero-title">Create real local masked edit jobs with an OpenAI worker path.</h1>
+        <h1 className="hero-title">Create real local masked edit jobs with an OpenRouter worker path.</h1>
         <p className="muted">
           This MVP round validates intake, writes queued jobs to Prisma-backed storage,
-          and runs a real OpenAI image edit worker for supported masked inpainting jobs
+          and runs a real OpenRouter image edit worker for supported masked inpainting jobs
           without faking generated results.
         </p>
       </section>
@@ -87,7 +87,7 @@ function HomePage() {
           <p className="muted">
             `POST /api/edit-jobs` accepts multipart image uploads, stores the uploaded assets
             in R2, writes queued jobs to Prisma, dispatches a real Trigger.dev run, and
-            executes OpenAI image edits when the upload constraints are satisfied.
+            executes OpenRouter image edits when the upload constraints are satisfied.
           </p>
         </article>
         <article className="panel">
@@ -107,7 +107,9 @@ function HomePage() {
           <p className="muted">
             Submit a source image, a mask image, and an optional prompt. The server uploads
             both files to R2 before creating the queued job record. The default provider is
-            OpenAI masked editing, which currently expects matching PNG or WEBP uploads.
+            OpenRouter masked editing, which accepts PNG, JPEG, or WEBP sources and requires
+            a PNG or WEBP mask. The OpenAI provider remains available for matching PNG or WEBP
+            source and mask uploads.
           </p>
           <form className="stack" onSubmit={handleSubmit}>
             <label className="field">

@@ -5,6 +5,7 @@ import { AppError } from '@/lib/server/errors'
 import { editImageWithProvider } from '@/lib/server/image-models'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
+import { imageMimeTypeToExtension } from '@/lib/server/image-models/shared'
 import { uploadAssetToR2 } from '@/lib/server/storage/r2'
 import type { EditImageTaskPayload } from '@/lib/server/trigger/tasks'
 
@@ -17,16 +18,7 @@ function toJsonSafeValue(value: unknown): Prisma.InputJsonValue | null {
 }
 
 function getResultAssetKey(jobId: string, mimeType: string): string {
-  const extension =
-    mimeType === 'image/png'
-      ? 'png'
-      : mimeType === 'image/webp'
-        ? 'webp'
-        : mimeType === 'image/jpeg'
-          ? 'jpg'
-          : 'bin'
-
-  return `results/${jobId}.${extension}`
+  return `results/${jobId}.${imageMimeTypeToExtension(mimeType)}`
 }
 
 export async function runEditImageJob(input: EditImageTaskPayload) {

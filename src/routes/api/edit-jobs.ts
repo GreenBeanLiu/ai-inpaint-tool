@@ -12,10 +12,14 @@ import {
   serializeError,
   toErrorResponse,
 } from '@/lib/server/errors'
-import { assertProviderSupportsMaskInpainting } from '@/lib/server/image-models'
-import { assertOpenAiMaskedEditUploadCompatibility } from '@/lib/server/image-models/providers/openai'
+import {
+  assertProviderMaskedEditUploadCompatibility,
+  assertProviderSupportsMaskInpainting,
+} from '@/lib/server/image-models'
+import { resolveImageEditDefaults } from '@/lib/server/image-models/defaults'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
+import { imageMimeTypeToExtension } from '@/lib/server/image-models/shared'
 import { uploadAssetToR2 } from '@/lib/server/storage/r2'
 import { triggerTask } from '@/lib/server/trigger/client'
 import {
@@ -33,24 +37,8 @@ function toJsonSafeValue(value: unknown): Prisma.InputJsonValue | null {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue
 }
 
-function getUploadExtension(mimeType: string): string {
-  if (mimeType === 'image/png') {
-    return 'png'
-  }
-
-  if (mimeType === 'image/jpeg') {
-    return 'jpg'
-  }
-
-  if (mimeType === 'image/webp') {
-    return 'webp'
-  }
-
-  return 'bin'
-}
-
 function createUploadedAssetKey(kind: 'source' | 'mask', mimeType: string): string {
-  return `uploads/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${kind}.${getUploadExtension(mimeType)}`
+  return `uploads/${new Date().toISOString().slice(0, 10)}/${randomUUID()}-${kind}.${imageMimeTypeToExtension(mimeType)}`
 }
 
 function getSingleFormData(formData: FormData, field: string): string | undefined {
@@ -79,14 +67,22 @@ async function parseCreateEditJobRequest(request: Request) {
   const formData = await request.formData()
   const sourceImage = requireMultipartImageFile(formData, 'image')
   const maskImage = requireMultipartImageFile(formData, 'mask')
-  const fields = createEditJobMultipartFieldsSchema.parse({
+  const rawFields = createEditJobMultipartFieldsSchema.parse({
     prompt: getSingleFormData(formData, 'prompt'),
     provider: getSingleFormData(formData, 'provider'),
     model: getSingleFormData(formData, 'model'),
   })
+  const defaults = resolveImageEditDefaults({
+    provider: rawFields.provider,
+    model: rawFields.model,
+  })
 
   return {
-    fields,
+    fields: {
+      ...rawFields,
+      provider: defaults.provider,
+      model: defaults.model,
+    },
     sourceImage,
     maskImage,
   }
@@ -130,9 +126,10 @@ export const Route = createFileRoute('/api/edit-jobs')({
             })
           }
 
-          if (fields.provider === 'openai') {
-            assertOpenAiMaskedEditUploadCompatibility(sourceImage.type, maskImage.type)
-          }
+          assertProviderMaskedEditUploadCompatibility(fields.provider, {
+            sourceMimeType: sourceImage.type,
+            maskMimeType: maskImage.type,
+          })
 
           const [sourceAsset, maskAsset] = await Promise.all([
             uploadAssetToR2({
