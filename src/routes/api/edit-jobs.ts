@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { createFileRoute } from '@tanstack/react-router'
-import type { Prisma } from '@prisma/client'
+import { EditJobStatus, type Prisma } from '@prisma/client'
 import { ZodError } from 'zod'
 
 import { readImageMetadata } from '@/lib/server/images/metadata'
@@ -193,12 +193,15 @@ export const Route = createFileRoute('/api/edit-jobs')({
             )
           } catch (dispatchError) {
             const serialized = serializeError(dispatchError)
+            const finishedAt = new Date()
 
             await repository.updateLifecycle(createdJob.id, {
+              status: EditJobStatus.failed,
               stage: 'dispatch_failed',
               progress: 0,
               errorCode: serialized.code,
               errorMessage: serialized.message,
+              finishedAt,
             })
 
             await notifyJobEvent({

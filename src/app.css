@@ -83,7 +83,8 @@ textarea {
 }
 
 .hero-grid,
-.detail-grid {
+.detail-grid,
+.preview-grid {
   display: grid;
   gap: 1rem;
 }
@@ -92,7 +93,8 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.detail-grid {
+.detail-grid,
+.preview-grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
@@ -198,6 +200,45 @@ textarea {
 .event-item {
   border-top: 1px solid rgba(27, 32, 40, 0.08);
   padding-top: 0.75rem;
+}
+
+.image-preview-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.image-preview-heading {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.image-preview-frame {
+  min-height: 180px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(31, 75, 122, 0.08), rgba(235, 122, 52, 0.12)),
+    rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(27, 32, 40, 0.08);
+}
+
+.image-preview-image,
+.image-preview-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+}
+
+.image-preview-image {
+  object-fit: cover;
+}
+
+.image-preview-empty {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
 }
 
 .code {

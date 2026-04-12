@@ -1,18 +1,67 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
+import { ImagePreviewCard } from '@/components/image-preview-card'
 import type { ApiErrorResponse, EditJobRecord } from '@/lib/types'
 
 export const Route = createFileRoute('/')({
   component: HomePage,
 })
 
+function useObjectUrl(file: File | null) {
+  const [url, setUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!file) {
+      setUrl(null)
+      return
+    }
+
+    const nextUrl = URL.createObjectURL(file)
+    setUrl(nextUrl)
+
+    return () => {
+      URL.revokeObjectURL(nextUrl)
+    }
+  }, [file])
+
+  return url
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+
+  const kb = bytes / 1024
+
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`
+  }
+
+  return `${(kb / 1024).toFixed(1)} MB`
+}
+
+function getSelectedFileSummary(file: File | null) {
+  if (!file) {
+    return null
+  }
+
+  const type = file.type || 'Unknown type'
+  return `${file.name} • ${type} • ${formatFileSize(file.size)}`
+}
+
 function HomePage() {
+  const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
+  const [maskFile, setMaskFile] = useState<File | null>(null)
   const [jobs, setJobs] = useState<EditJobRecord[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const sourcePreviewUrl = useObjectUrl(sourceFile)
+  const maskPreviewUrl = useObjectUrl(maskFile)
 
   useEffect(() => {
     void refreshJobs().catch((error) => {
@@ -31,6 +80,24 @@ function HomePage() {
     const payload = (await response.json()) as { jobs: EditJobRecord[] }
     setJobs(payload.jobs)
     setLoadError(null)
+  }
+
+  function getPersistedJobIdFromError(payload: ApiErrorResponse): string | null {
+    const details = payload.error.details
+
+    if (!details || typeof details !== 'object') {
+      return null
+    }
+
+    const job = (details as Record<string, unknown>).job
+
+    if (!job || typeof job !== 'object') {
+      return null
+    }
+
+    return typeof (job as Record<string, unknown>).id === 'string'
+      ? ((job as Record<string, unknown>).id as string)
+      : null
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -54,13 +121,31 @@ function HomePage() {
         | ApiErrorResponse
 
       if (!response.ok || !('job' in payload)) {
-        throw new Error('error' in payload ? payload.error.message : 'Failed to create job')
+        if ('error' in payload) {
+          const persistedJobId = getPersistedJobIdFromError(payload)
+
+          if (persistedJobId) {
+            await navigate({
+              to: '/editor/$jobId',
+              params: { jobId: persistedJobId },
+            })
+            return
+          }
+
+          throw new Error(payload.error.message)
+        }
+
+        throw new Error('Failed to create job')
       }
 
-      setMessage(`Job ${payload.job.id} created and dispatched.`)
       setPrompt('')
+      setSourceFile(null)
+      setMaskFile(null)
       event.currentTarget.reset()
-      await refreshJobs()
+      await navigate({
+        to: '/editor/$jobId',
+        params: { jobId: payload.job.id },
+      })
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unexpected error')
     } finally {
@@ -109,7 +194,8 @@ function HomePage() {
             both files to R2 before creating the queued job record. The default provider is
             OpenRouter masked editing, which accepts PNG, JPEG, or WEBP sources and requires
             a PNG or WEBP mask. The OpenAI provider remains available for matching PNG or WEBP
-            source and mask uploads.
+            source and mask uploads. After submit, the app opens the job detail page so you can
+            watch lifecycle updates there.
           </p>
           <form className="stack" onSubmit={handleSubmit}>
             <label className="field">
@@ -117,6 +203,7 @@ function HomePage() {
               <input
                 accept="image/png,image/jpeg,image/webp"
                 name="image"
+                onChange={(event) => setSourceFile(event.target.files?.[0] ?? null)}
                 required
                 type="file"
               />
@@ -127,10 +214,28 @@ function HomePage() {
               <input
                 accept="image/png,image/jpeg,image/webp"
                 name="mask"
+                onChange={(event) => setMaskFile(event.target.files?.[0] ?? null)}
                 required
                 type="file"
               />
             </label>
+
+            <div className="preview-grid">
+              <ImagePreviewCard
+                alt="Selected source preview"
+                emptyLabel="Choose a source image to preview it before submission."
+                src={sourcePreviewUrl}
+                summary={getSelectedFileSummary(sourceFile)}
+                title="Source preview"
+              />
+              <ImagePreviewCard
+                alt="Selected mask preview"
+                emptyLabel="Choose a mask image to preview it before submission."
+                src={maskPreviewUrl}
+                summary={getSelectedFileSummary(maskFile)}
+                title="Mask preview"
+              />
+            </div>
 
             <label className="field">
               <span>Prompt</span>
