@@ -1,4 +1,5 @@
-import { ExternalServiceError } from '@/lib/server/errors'
+import { ExternalServiceError, serializeError } from '@/lib/server/errors'
+import { downloadAssetFromR2, getR2ObjectKeyFromPublicUrl } from '@/lib/server/storage/r2'
 
 export interface ImageEditInput {
   sourceImageUrl: string
@@ -82,6 +83,35 @@ export async function downloadRemoteImage(
     asset: 'source' | 'mask'
   },
 ): Promise<DownloadedImage> {
+  const r2ObjectKey = getR2ObjectKeyFromPublicUrl(url)
+
+  if (r2ObjectKey) {
+    try {
+      const asset = await downloadAssetFromR2(r2ObjectKey)
+
+      return {
+        bytes: asset.body,
+        mimeType: asset.contentType ?? 'application/octet-stream',
+      }
+    } catch (error) {
+      const serialized = serializeError(error)
+
+      throw new ExternalServiceError(`Failed to download ${params.asset} image for ${params.provider}`, {
+        provider: params.provider,
+        operation: params.operation,
+        asset: params.asset,
+        sourceUrl: url,
+        assetKey: r2ObjectKey,
+        accessMethod: 'r2-signed-get',
+        upstream: {
+          code: serialized.code,
+          message: serialized.message,
+          details: serialized.details,
+        },
+      }, serialized.status)
+    }
+  }
+
   const response = await fetch(url)
 
   if (!response.ok) {
@@ -92,6 +122,7 @@ export async function downloadRemoteImage(
       operation: params.operation,
       asset: params.asset,
       sourceUrl: url,
+      accessMethod: 'public-url',
       status: response.status,
       statusText: response.statusText,
       responseBody: responseText ? responseText.slice(0, 1000) : null,

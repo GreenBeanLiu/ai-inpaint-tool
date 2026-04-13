@@ -1,6 +1,6 @@
 import { createHash, createHmac } from 'node:crypto'
 
-import { getMissingEnv, requireEnv } from '@/lib/server/env'
+import { getEnv, getMissingEnv, requireEnv } from '@/lib/server/env'
 import { ConfigurationError, ExternalServiceError } from '@/lib/server/errors'
 
 export interface UploadAssetInput {
@@ -38,6 +38,10 @@ interface R2Config {
   publicBaseUrl: string
   endpoint: string
   host: string
+}
+
+function getR2PublicBaseUrl(): string | undefined {
+  return getEnv('R2_PUBLIC_BASE_URL')?.replace(/\/+$/, '')
 }
 
 function assertR2Configured() {
@@ -236,4 +240,44 @@ export async function downloadAssetFromR2(key: string): Promise<DownloadAssetRes
 export function buildR2ObjectUrl(key: string): string {
   const { publicBaseUrl } = getR2Config()
   return `${publicBaseUrl}/${encodeR2Key(key)}`
+}
+
+export function getR2ObjectKeyFromPublicUrl(url: string): string | null {
+  const publicBaseUrl = getR2PublicBaseUrl()
+
+  if (!publicBaseUrl) {
+    return null
+  }
+
+  let publicBase: URL
+  let objectUrl: URL
+
+  try {
+    publicBase = new URL(publicBaseUrl)
+    objectUrl = new URL(url)
+  } catch {
+    return null
+  }
+
+  if (publicBase.origin !== objectUrl.origin) {
+    return null
+  }
+
+  const basePath = publicBase.pathname.replace(/\/+$/, '')
+  const objectPath = objectUrl.pathname
+
+  if (objectPath === basePath || !objectPath.startsWith(`${basePath}/`)) {
+    return null
+  }
+
+  const encodedKey = objectPath.slice(basePath.length + 1)
+
+  if (!encodedKey) {
+    return null
+  }
+
+  return encodedKey
+    .split('/')
+    .map((segment) => decodeURIComponent(segment))
+    .join('/')
 }

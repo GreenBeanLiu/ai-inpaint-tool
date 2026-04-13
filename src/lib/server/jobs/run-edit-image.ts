@@ -32,10 +32,11 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
   }
 
   const startedAt = new Date()
+  let currentStage = 'preparing'
 
   await repository.updateLifecycle(input.jobId, {
     status: EditJobStatus.processing,
-    stage: 'preparing',
+    stage: currentStage,
     progress: 5,
     startedAt,
     errorCode: null,
@@ -49,9 +50,21 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
   })
 
   try {
+    currentStage = 'editing'
+
     await repository.updateLifecycle(input.jobId, {
-      stage: 'editing',
+      stage: currentStage,
       progress: 25,
+    })
+
+    await notifyJobEvent({
+      jobId: input.jobId,
+      type: 'job.provider_started',
+      message: `Starting ${existingJob.provider} image edit request.`,
+      payloadJson: {
+        provider: existingJob.provider,
+        model: existingJob.model,
+      },
     })
 
     const modelResult = await editImageWithProvider({
@@ -63,9 +76,22 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       mimeType: existingJob.sourceMimeType ?? undefined,
     })
 
+    currentStage = 'uploading'
+
     await repository.updateLifecycle(input.jobId, {
-      stage: 'uploading',
+      stage: currentStage,
       progress: 85,
+    })
+
+    await notifyJobEvent({
+      jobId: input.jobId,
+      type: 'job.result_uploading',
+      message: 'Provider completed. Uploading the generated result to storage.',
+      payloadJson: {
+        provider: existingJob.provider,
+        providerRequestId: modelResult.providerRequestId ?? null,
+        resultMimeType: modelResult.resultMimeType,
+      },
     })
 
     const asset = await uploadAssetToR2({
@@ -118,6 +144,9 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       payloadJson: {
         code: appError?.code ?? 'PROCESSING_ERROR',
         status: appError?.status ?? 500,
+        failedStage: currentStage,
+        provider: existingJob.provider,
+        model: existingJob.model,
         details: toJsonSafeValue(appError?.details ?? null),
       },
     })
