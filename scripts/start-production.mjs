@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import { createServer } from 'node:http'
 import path from 'node:path'
-import { Readable } from 'node:stream'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { H3, fromWebHandler, toNodeHandler } from 'h3-v2/node'
 
 process.env.NODE_ENV ??= 'production'
 
@@ -100,103 +100,27 @@ export function resolvePort(value) {
   return 3000
 }
 
-function createHeaders(nodeHeaders) {
-  const headers = new Headers()
+export function createProductionRequestHandler(serverEntry) {
+  const app = new H3()
+  const webHandler = fromWebHandler((request) => serverEntry.fetch(request))
 
-  for (const [name, value] of Object.entries(nodeHeaders)) {
-    if (value === undefined) {
-      continue
-    }
+  app.all('/', webHandler)
+  app.all('/**', webHandler)
 
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        headers.append(name, item)
-      }
-
-      continue
-    }
-
-    headers.set(name, value)
-  }
-
-  return headers
+  return toNodeHandler(app)
 }
 
-export function createRequest(nodeRequest, nodeResponse, { port }) {
-  const headers = createHeaders(nodeRequest.headers)
-  const protocol = headers.get('x-forwarded-proto') ?? 'http'
-  const host = headers.get('x-forwarded-host') ?? headers.get('host') ?? `127.0.0.1:${port}`
-  const url = new URL(nodeRequest.url ?? '/', `${protocol}://${host}`)
-  const method = nodeRequest.method ?? 'GET'
-  const hasBody = method !== 'GET' && method !== 'HEAD'
-  const controller = new AbortController()
-  const abortRequest = () => {
-    if (!controller.signal.aborted) {
-      controller.abort()
-    }
-  }
-
-  nodeRequest.on?.('aborted', abortRequest)
-  nodeResponse.on?.('close', () => {
-    if (!nodeResponse.writableEnded) {
-      abortRequest()
-    }
-  })
-
-  return new Request(url, {
-    method,
-    headers,
-    body: hasBody ? Readable.toWeb(nodeRequest) : undefined,
-    duplex: hasBody ? 'half' : undefined,
-    signal: controller.signal,
-  })
-}
-
-export async function writeResponse(nodeResponse, response) {
-  nodeResponse.statusCode = response.status
-
-  const setCookie =
-    typeof response.headers.getSetCookie === 'function' ? response.headers.getSetCookie() : []
-
-  for (const [name, value] of response.headers) {
-    if (name === 'set-cookie') {
-      continue
-    }
-
-    nodeResponse.setHeader(name, value)
-  }
-
-  if (setCookie.length > 0) {
-    nodeResponse.setHeader('set-cookie', setCookie)
-  }
-
-  await new Promise((resolve, reject) => {
-    nodeResponse.once('finish', resolve)
-    nodeResponse.once('error', reject)
-
-    if (!response.body) {
-      nodeResponse.end()
-      return
-    }
-
-    const body = Readable.fromWeb(response.body)
-
-    body.once('error', reject)
-    body.pipe(nodeResponse)
-  })
-}
-
-export async function handleNodeRequest(serverEntry, nodeRequest, nodeResponse, { port }) {
-  const request = createRequest(nodeRequest, nodeResponse, { port })
-  const response = await serverEntry.fetch(request)
-
-  await writeResponse(nodeResponse, response)
+export async function handleNodeRequest(serverEntry, nodeRequest, nodeResponse) {
+  const handler = createProductionRequestHandler(serverEntry)
+  await handler(nodeRequest, nodeResponse)
 }
 
 export function createProductionServer(serverEntry, { port }) {
+  const handler = createProductionRequestHandler(serverEntry)
+
   return createServer(async (req, res) => {
     try {
-      await handleNodeRequest(serverEntry, req, res, { port })
+      await handler(req, res)
     } catch (error) {
       console.error('Failed to handle request.', error)
 

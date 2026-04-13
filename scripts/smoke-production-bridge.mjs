@@ -10,7 +10,17 @@ class MockRequest extends Readable {
     this.method = method
     this.url = url
     this.headers = headers
-    this.socket = new EventEmitter()
+    this.rawHeaders = Object.entries(headers).flatMap(([name, value]) =>
+      Array.isArray(value) ? value.flatMap((item) => [name, item]) : [name, value],
+    )
+    this.httpVersion = '1.1'
+    this.socket = Object.assign(new EventEmitter(), {
+      localAddress: '127.0.0.1',
+      localFamily: 'IPv4',
+      localPort: 3000,
+      remoteAddress: '127.0.0.1',
+      encrypted: false,
+    })
   }
 
   _read() {
@@ -19,9 +29,11 @@ class MockRequest extends Readable {
 }
 
 class MockResponse extends Writable {
-  constructor() {
+  constructor(request) {
     super()
+    this.req = request
     this.statusCode = 200
+    this.statusMessage = 'OK'
     this.headers = new Map()
     this.bodyChunks = []
     this.headersSent = false
@@ -33,6 +45,28 @@ class MockResponse extends Writable {
 
   getHeader(name) {
     return this.headers.get(String(name).toLowerCase())
+  }
+
+  writeHead(statusCode, statusMessage, headers) {
+    this.statusCode = statusCode
+
+    if (Array.isArray(statusMessage)) {
+      headers = statusMessage
+      statusMessage = undefined
+    }
+
+    if (statusMessage !== undefined) {
+      this.statusMessage = statusMessage
+    }
+
+    if (Array.isArray(headers)) {
+      for (let index = 0; index < headers.length; index += 2) {
+        this.setHeader(headers[index], headers[index + 1])
+      }
+    }
+
+    this.headersSent = true
+    return this
   }
 
   _write(chunk, encoding, callback) {
@@ -72,9 +106,9 @@ const request = new MockRequest({
     host: 'local.test',
   },
 })
-const response = new MockResponse()
+const response = new MockResponse(request)
 
-await handleNodeRequest(serverEntry, request, response, { port: 3000 })
+await handleNodeRequest(serverEntry, request, response)
 
 assert.ok(response.statusCode >= 200 && response.statusCode < 300, `Expected 2xx but received ${response.statusCode}`)
 assert.match(String(response.getHeader('content-type') ?? ''), /text\/html/i)
