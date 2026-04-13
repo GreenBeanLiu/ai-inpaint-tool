@@ -7,7 +7,31 @@ import { H3, fromWebHandler, toNodeHandler } from 'h3-v2/node'
 process.env.NODE_ENV ??= 'production'
 
 const repoRoot = process.cwd()
+const builtClientPath = path.join(repoRoot, 'dist/client')
 const builtServerPath = path.join(repoRoot, 'dist/server/server.js')
+const contentTypesByExtension = new Map([
+  ['.avif', 'image/avif'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.gif', 'image/gif'],
+  ['.html', 'text/html; charset=utf-8'],
+  ['.ico', 'image/x-icon'],
+  ['.jpeg', 'image/jpeg'],
+  ['.jpg', 'image/jpeg'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.json', 'application/json; charset=utf-8'],
+  ['.map', 'application/json; charset=utf-8'],
+  ['.mjs', 'text/javascript; charset=utf-8'],
+  ['.otf', 'font/otf'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.txt', 'text/plain; charset=utf-8'],
+  ['.wasm', 'application/wasm'],
+  ['.webmanifest', 'application/manifest+json; charset=utf-8'],
+  ['.webp', 'image/webp'],
+  ['.woff', 'font/woff'],
+  ['.woff2', 'font/woff2'],
+  ['.xml', 'application/xml; charset=utf-8'],
+])
 
 export function ensureBuiltServerExists(serverPath = builtServerPath) {
   if (!fs.existsSync(serverPath)) {
@@ -100,6 +124,82 @@ export function resolvePort(value) {
   return 3000
 }
 
+export function resolveClientAssetPath(requestUrl, clientPath = builtClientPath) {
+  const pathname = new URL(requestUrl ?? '/', 'http://local.test').pathname
+
+  if (pathname === '/' || pathname.endsWith('/')) {
+    return null
+  }
+
+  let decodedPathname
+
+  try {
+    decodedPathname = decodeURIComponent(pathname)
+  } catch {
+    return null
+  }
+
+  const relativePath = decodedPathname.replace(/^\/+/, '')
+
+  if (!relativePath) {
+    return null
+  }
+
+  const resolvedPath = path.resolve(clientPath, relativePath)
+  const relativeResolvedPath = path.relative(clientPath, resolvedPath)
+
+  if (relativeResolvedPath.startsWith('..') || path.isAbsolute(relativeResolvedPath)) {
+    return null
+  }
+
+  if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
+    return null
+  }
+
+  return resolvedPath
+}
+
+export function getContentType(filePath) {
+  return contentTypesByExtension.get(path.extname(filePath).toLowerCase()) ?? 'application/octet-stream'
+}
+
+export async function maybeServeClientAsset(nodeRequest, nodeResponse, clientPath = builtClientPath) {
+  if (!['GET', 'HEAD'].includes(nodeRequest.method ?? 'GET')) {
+    return false
+  }
+
+  const assetPath = resolveClientAssetPath(nodeRequest.url, clientPath)
+
+  if (!assetPath) {
+    return false
+  }
+
+  const assetStats = fs.statSync(assetPath)
+
+  nodeResponse.statusCode = 200
+  nodeResponse.setHeader('content-length', String(assetStats.size))
+  nodeResponse.setHeader('content-type', getContentType(assetPath))
+
+  if (nodeRequest.url?.startsWith('/assets/')) {
+    nodeResponse.setHeader('cache-control', 'public, max-age=31536000, immutable')
+  }
+
+  if (nodeRequest.method === 'HEAD') {
+    nodeResponse.end()
+    return true
+  }
+
+  await new Promise((resolve, reject) => {
+    const stream = fs.createReadStream(assetPath)
+    stream.on('error', reject)
+    stream.on('end', resolve)
+    nodeResponse.on('error', reject)
+    stream.pipe(nodeResponse)
+  })
+
+  return true
+}
+
 export function createProductionRequestHandler(serverEntry) {
   const app = new H3()
   const webHandler = fromWebHandler((request) => serverEntry.fetch(request))
@@ -111,6 +211,10 @@ export function createProductionRequestHandler(serverEntry) {
 }
 
 export async function handleNodeRequest(serverEntry, nodeRequest, nodeResponse) {
+  if (await maybeServeClientAsset(nodeRequest, nodeResponse)) {
+    return
+  }
+
   const handler = createProductionRequestHandler(serverEntry)
   await handler(nodeRequest, nodeResponse)
 }
@@ -120,6 +224,10 @@ export function createProductionServer(serverEntry, { port }) {
 
   return createServer(async (req, res) => {
     try {
+      if (await maybeServeClientAsset(req, res)) {
+        return
+      }
+
       await handler(req, res)
     } catch (error) {
       console.error('Failed to handle request.', error)
