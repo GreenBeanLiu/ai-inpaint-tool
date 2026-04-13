@@ -103,6 +103,20 @@ function getStatusSummary(job: EditJobDetail) {
   }
 }
 
+function getFailureDiagnostics(job: EditJobDetail) {
+  if (job.status !== 'failed') {
+    return null
+  }
+
+  const failureEvent = job.events.find((event) => event.type === 'job.failed') ?? job.events[0] ?? null
+
+  if (!failureEvent?.payloadJson) {
+    return null
+  }
+
+  return JSON.stringify(failureEvent.payloadJson, null, 2)
+}
+
 function EditorJobPage() {
   const { jobId } = Route.useParams()
   const [job, setJob] = useState<EditJobDetail | null>(null)
@@ -188,6 +202,7 @@ function EditorJobPage() {
   const latestEvent = job.events[0] ?? null
   const autoRefresh = shouldAutoRefresh(job)
   const statusSummary = getStatusSummary(job)
+  const failureDiagnostics = getFailureDiagnostics(job)
 
   return (
     <div className="stack">
@@ -223,6 +238,15 @@ function EditorJobPage() {
             <strong>Refresh failed</strong>
             <div>{error}</div>
             <div className="muted">Showing the last persisted snapshot loaded successfully.</div>
+          </div>
+        ) : null}
+        {failureDiagnostics ? (
+          <div className="alert alert-error">
+            <strong>Failure diagnostics</strong>
+            <div className="muted">
+              The latest worker failure payload is surfaced here so you do not have to scroll to the event log first.
+            </div>
+            <pre className="code">{failureDiagnostics}</pre>
           </div>
         ) : null}
 
