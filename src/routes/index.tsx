@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { ImagePreviewCard } from '@/components/image-preview-card'
+import { MaskPaintEditor } from '@/components/mask-paint-editor'
 import { RuntimeStatusPanel } from '@/components/runtime-status-panel'
 import type { ApiErrorResponse, EditJobRecord, RuntimeCheckReport } from '@/lib/types'
 
@@ -129,11 +130,24 @@ function HomePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setIsSubmitting(true)
     setMessage(null)
+
+    if (!sourceFile) {
+      setMessage('Choose a source image before submitting.')
+      return
+    }
+
+    if (!maskFile) {
+      setMessage('Paint a mask region before submitting.')
+      return
+    }
+
+    setIsSubmitting(true)
 
     try {
       const formData = new FormData(event.currentTarget)
+      formData.set('image', sourceFile, sourceFile.name)
+      formData.set('mask', maskFile, maskFile.name)
       const response = await fetch('/api/edit-jobs', {
         method: 'POST',
         body: formData,
@@ -235,12 +249,12 @@ function HomePage() {
         <section className="panel">
           <h2>Create edit job</h2>
           <p className="muted">
-            Submit a source image, a mask image, and an optional prompt. The server uploads
-            both files to R2 before creating the queued job record. The default provider is
-            OpenRouter masked editing, which accepts PNG, JPEG, or WEBP sources and requires
-            a PNG or WEBP mask. The OpenAI provider remains available for matching PNG or WEBP
-            source and mask uploads. After submit, the app opens the job detail page so you can
-            watch lifecycle updates there.
+            Upload one source image, paint the editable area in the browser, and submit an
+            optional prompt. The app exports the painted mask as a PNG, then the server uploads
+            both files to R2 before creating the queued job record. The current default path is
+            OpenRouter masked editing, which accepts PNG, JPEG, or WEBP sources and a PNG or
+            WEBP mask. After submit, the app opens the job detail page so you can watch lifecycle
+            updates there.
           </p>
           <form className="stack" onSubmit={handleSubmit}>
             <label className="field">
@@ -254,16 +268,11 @@ function HomePage() {
               />
             </label>
 
-            <label className="field">
-              <span>Mask image</span>
-              <input
-                accept="image/png,image/jpeg,image/webp"
-                name="mask"
-                onChange={(event) => setMaskFile(event.target.files?.[0] ?? null)}
-                required
-                type="file"
-              />
-            </label>
+            <MaskPaintEditor
+              sourceFile={sourceFile}
+              sourceUrl={sourcePreviewUrl}
+              onMaskChange={setMaskFile}
+            />
 
             <div className="preview-grid">
               <ImagePreviewCard
@@ -274,11 +283,11 @@ function HomePage() {
                 title="Source preview"
               />
               <ImagePreviewCard
-                alt="Selected mask preview"
-                emptyLabel="Choose a mask image to preview it before submission."
+                alt="Generated mask preview"
+                emptyLabel="Paint the editable region to generate a mask preview."
                 src={maskPreviewUrl}
                 summary={getSelectedFileSummary(maskFile)}
-                title="Mask preview"
+                title="Generated mask"
               />
             </div>
 
@@ -295,13 +304,22 @@ function HomePage() {
             <div className="actions">
               <button
                 className="button"
-                disabled={isSubmitting || Boolean(createJobBlockedReason)}
+                disabled={
+                  isSubmitting ||
+                  Boolean(createJobBlockedReason) ||
+                  !sourceFile ||
+                  !maskFile
+                }
                 type="submit"
               >
                 {isSubmitting
                   ? 'Submitting...'
                   : createJobBlockedReason
                     ? 'Creation blocked by runtime config'
+                    : !sourceFile
+                      ? 'Choose a source image'
+                      : !maskFile
+                        ? 'Paint a mask to continue'
                     : 'Create queued job'}
               </button>
               {createJobBlockedReason ? <span className="muted">{createJobBlockedReason}</span> : null}

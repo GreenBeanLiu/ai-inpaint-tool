@@ -157,6 +157,12 @@ textarea {
   cursor: pointer;
 }
 
+.button-secondary {
+  background: rgba(31, 75, 122, 0.1);
+  color: #1f4b7a;
+  border: 1px solid rgba(31, 75, 122, 0.16);
+}
+
 .button[disabled] {
   opacity: 0.6;
   cursor: not-allowed;
@@ -213,6 +219,68 @@ textarea {
 }
 
 .image-preview-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mask-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.mask-editor-header,
+.mask-editor-meta {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mask-editor-stage-frame {
+  min-height: 240px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(31, 75, 122, 0.08), rgba(235, 122, 52, 0.12)),
+    rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(27, 32, 40, 0.08);
+  position: relative;
+}
+
+.mask-editor-stage {
+  position: relative;
+  width: 100%;
+  height: auto;
+}
+
+.mask-editor-image,
+.mask-editor-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mask-editor-image {
+  object-fit: cover;
+}
+
+.mask-editor-canvas {
+  cursor: crosshair;
+  touch-action: none;
+  opacity: 0.42;
+}
+
+.mask-editor-preload {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mask-editor-controls {
   display: grid;
   gap: 0.75rem;
 }
@@ -332,5 +400,10 @@ textarea {
   .app-main,
   .app-header {
     padding: 1rem;
+  }
+
+  .mask-editor-header,
+  .mask-editor-meta {
+    align-items: flex-start;
   }
 }
