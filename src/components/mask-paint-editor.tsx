@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type PointerEvent, type SyntheticEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+  type SyntheticEvent,
+} from 'react'
 
 interface MaskPaintEditorProps {
   sourceFile: File | null
@@ -16,9 +23,19 @@ interface ImageDimensions {
   height: number
 }
 
+type BrushMode = 'paint' | 'erase'
+
 const DEFAULT_BRUSH_SIZE = 40
 const MIN_BRUSH_SIZE = 8
 const MAX_BRUSH_SIZE = 160
+const BRUSH_STEP = 4
+const DEFAULT_OVERLAY_OPACITY = 0.46
+const PAINT_COLOR = '#d54837'
+const BRUSH_PRESETS = [16, 32, 64, 96]
+
+function clampBrushSize(value: number) {
+  return Math.min(MAX_BRUSH_SIZE, Math.max(MIN_BRUSH_SIZE, value))
+}
 
 function stripExtension(filename: string) {
   return filename.replace(/\.[^.]+$/, '')
@@ -41,11 +58,19 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: PointerEvent<HTMLCanva
   }
 }
 
-function drawBrushDot(context: CanvasRenderingContext2D, point: Point, brushSize: number) {
-  context.fillStyle = '#d54837'
+function drawBrushDot(
+  context: CanvasRenderingContext2D,
+  point: Point,
+  brushSize: number,
+  brushMode: BrushMode,
+) {
+  context.save()
+  context.globalCompositeOperation = brushMode === 'erase' ? 'destination-out' : 'source-over'
+  context.fillStyle = PAINT_COLOR
   context.beginPath()
   context.arc(point.x, point.y, brushSize / 2, 0, Math.PI * 2)
   context.fill()
+  context.restore()
 }
 
 function drawBrushStroke(
@@ -53,8 +78,11 @@ function drawBrushStroke(
   start: Point,
   end: Point,
   brushSize: number,
+  brushMode: BrushMode,
 ) {
-  context.strokeStyle = '#d54837'
+  context.save()
+  context.globalCompositeOperation = brushMode === 'erase' ? 'destination-out' : 'source-over'
+  context.strokeStyle = PAINT_COLOR
   context.lineCap = 'round'
   context.lineJoin = 'round'
   context.lineWidth = brushSize
@@ -62,6 +90,19 @@ function drawBrushStroke(
   context.moveTo(start.x, start.y)
   context.lineTo(end.x, end.y)
   context.stroke()
+  context.restore()
+}
+
+function canvasHasPaint(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+  const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
+
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] > 0) {
+      return true
+    }
+  }
+
+  return false
 }
 
 export function MaskPaintEditor({
@@ -75,6 +116,8 @@ export function MaskPaintEditor({
   const lastPointRef = useRef<Point | null>(null)
   const sourceVersionRef = useRef(0)
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE)
+  const [brushMode, setBrushMode] = useState<BrushMode>('paint')
+  const [overlayOpacity, setOverlayOpacity] = useState(DEFAULT_OVERLAY_OPACITY)
   const [dimensions, setDimensions] = useState<ImageDimensions | null>(null)
   const [hasPaint, setHasPaint] = useState(false)
 
@@ -83,6 +126,7 @@ export function MaskPaintEditor({
     activePointerIdRef.current = null
     hasPaintRef.current = false
     lastPointRef.current = null
+    setBrushMode('paint')
     setDimensions(null)
     setHasPaint(false)
     onMaskChange(null)
@@ -110,7 +154,17 @@ export function MaskPaintEditor({
   async function exportMaskFile(version: number) {
     const canvas = canvasRef.current
 
-    if (!canvas || !dimensions || !hasPaintRef.current) {
+    if (!canvas || !dimensions) {
+      onMaskChange(null)
+      return
+    }
+
+    const context = canvas.getContext('2d')
+    const nextHasPaint = context ? canvasHasPaint(context, canvas) : false
+    hasPaintRef.current = nextHasPaint
+    setHasPaint(nextHasPaint)
+
+    if (!nextHasPaint) {
       onMaskChange(null)
       return
     }
@@ -160,7 +214,7 @@ export function MaskPaintEditor({
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
 
-    if (!canvas || !dimensions) {
+    if (!canvas || !dimensions || event.button !== 0) {
       return
     }
 
@@ -177,7 +231,7 @@ export function MaskPaintEditor({
     hasPaintRef.current = true
     lastPointRef.current = point
     setHasPaint(true)
-    drawBrushDot(context, point, brushSize)
+    drawBrushDot(context, point, brushSize, brushMode)
     canvas.setPointerCapture(event.pointerId)
   }
 
@@ -197,7 +251,7 @@ export function MaskPaintEditor({
     event.preventDefault()
 
     const point = getCanvasPoint(canvas, event)
-    drawBrushStroke(context, lastPointRef.current, point, brushSize)
+    drawBrushStroke(context, lastPointRef.current, point, brushSize, brushMode)
     lastPointRef.current = point
   }
 
@@ -240,14 +294,43 @@ export function MaskPaintEditor({
     onMaskChange(null)
   }
 
+  function handleAdjustBrushSize(delta: number) {
+    setBrushSize((current) => clampBrushSize(current + delta))
+  }
+
+  function handleCanvasKeyDown(event: KeyboardEvent<HTMLCanvasElement>) {
+    if (event.key === '[') {
+      event.preventDefault()
+      handleAdjustBrushSize(-BRUSH_STEP)
+      return
+    }
+
+    if (event.key === ']') {
+      event.preventDefault()
+      handleAdjustBrushSize(BRUSH_STEP)
+      return
+    }
+
+    if (event.key === 'b' || event.key === 'B') {
+      event.preventDefault()
+      setBrushMode('paint')
+      return
+    }
+
+    if (event.key === 'e' || event.key === 'E') {
+      event.preventDefault()
+      setBrushMode('erase')
+    }
+  }
+
   return (
     <section className="mask-editor">
       <div className="mask-editor-header">
         <div>
           <h3 style={{ margin: 0 }}>Mask editor</h3>
           <p className="muted" style={{ marginBottom: 0 }}>
-            Paint the editable region directly on the source image. The exported mask keeps
-            the source dimensions and uses transparent painted areas.
+            Paint what should change, then switch to erase mode to trim the edge. The
+            exported mask keeps the source dimensions and makes painted areas transparent.
           </p>
         </div>
         <button className="button button-secondary" type="button" onClick={handleClearMask}>
@@ -261,6 +344,14 @@ export function MaskPaintEditor({
             className="mask-editor-stage"
             style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
           >
+            <div className="mask-editor-stage-badge">
+              <strong>{brushMode === 'paint' ? 'Paint editable pixels' : 'Erasing mask edge'}</strong>
+              <span>
+                {brushMode === 'paint'
+                  ? 'Red overlay becomes transparent in the exported PNG.'
+                  : 'Erased overlay restores protected areas.'}
+              </span>
+            </div>
             <img
               alt="Source image for mask painting"
               className="mask-editor-image"
@@ -269,8 +360,11 @@ export function MaskPaintEditor({
             <canvas
               className="mask-editor-canvas"
               ref={canvasRef}
+              style={{ opacity: overlayOpacity }}
+              tabIndex={0}
               onPointerCancel={finishStroke}
               onPointerDown={handlePointerDown}
+              onKeyDown={handleCanvasKeyDown}
               onPointerMove={handlePointerMove}
               onPointerUp={finishStroke}
             />
@@ -294,22 +388,90 @@ export function MaskPaintEditor({
       </div>
 
       <div className="mask-editor-controls">
+        <div className="mask-editor-toolbar">
+          <div className="segmented-controls" role="group" aria-label="Mask tool">
+            <button
+              aria-pressed={brushMode === 'paint'}
+              className="button button-secondary"
+              type="button"
+              onClick={() => setBrushMode('paint')}
+            >
+              Paint
+            </button>
+            <button
+              aria-pressed={brushMode === 'erase'}
+              className="button button-secondary"
+              type="button"
+              onClick={() => setBrushMode('erase')}
+            >
+              Erase
+            </button>
+          </div>
+
+          <div className="brush-size-stepper">
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => handleAdjustBrushSize(-BRUSH_STEP)}
+            >
+              Smaller
+            </button>
+            <span className="brush-size-chip">{brushSize}px</span>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => handleAdjustBrushSize(BRUSH_STEP)}
+            >
+              Larger
+            </button>
+          </div>
+        </div>
+
         <label className="field">
-          <span>Brush size: {brushSize}px</span>
+          <span>Brush size</span>
           <input
             aria-label="Brush size"
             max={MAX_BRUSH_SIZE}
             min={MIN_BRUSH_SIZE}
+            step={BRUSH_STEP}
             type="range"
             value={brushSize}
-            onChange={(event) => setBrushSize(Number(event.target.value))}
+            onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))}
           />
         </label>
+        <div className="mask-editor-presets" role="group" aria-label="Brush presets">
+          {BRUSH_PRESETS.map((preset) => (
+            <button
+              aria-pressed={brushSize === preset}
+              className="button button-secondary"
+              key={preset}
+              type="button"
+              onClick={() => setBrushSize(preset)}
+            >
+              {preset}px
+            </button>
+          ))}
+        </div>
+
+        <label className="field">
+          <span>Overlay opacity: {Math.round(overlayOpacity * 100)}%</span>
+          <input
+            aria-label="Mask overlay opacity"
+            max={0.85}
+            min={0.2}
+            step={0.05}
+            type="range"
+            value={overlayOpacity}
+            onChange={(event) => setOverlayOpacity(Number(event.target.value))}
+          />
+        </label>
+
         <div className="mask-editor-meta muted">
           <span>
             {dimensions ? `${dimensions.width} × ${dimensions.height}` : 'Source dimensions pending'}
           </span>
           <span>{hasPaint ? 'Mask ready for submit as PNG.' : 'Paint at least one region.'}</span>
+          <span>Shortcuts: B paint, E erase, [ and ] resize.</span>
         </div>
       </div>
     </section>

@@ -53,6 +53,14 @@ function getSelectedFileSummary(file: File | null) {
   return `${file.name} • ${type} • ${formatFileSize(file.size)}`
 }
 
+function getMaskPreviewSummary(file: File | null) {
+  if (!file) {
+    return null
+  }
+
+  return `${getSelectedFileSummary(file)} • Transparent areas are editable`
+}
+
 function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
@@ -286,7 +294,7 @@ function HomePage() {
                 alt="Generated mask preview"
                 emptyLabel="Paint the editable region to generate a mask preview."
                 src={maskPreviewUrl}
-                summary={getSelectedFileSummary(maskFile)}
+                summary={getMaskPreviewSummary(maskFile)}
                 title="Generated mask"
               />
             </div>

@@ -1,0 +1,169 @@
+import { useEffect, useState } from 'react'
+
+type ComparisonViewMode = 'source' | 'split' | 'result'
+
+interface ImageComparisonCardProps {
+  title: string
+  sourceSrc: string
+  resultSrc?: string | null
+  sourceAlt: string
+  resultAlt: string
+  sourceHref?: string | null
+  resultHref?: string | null
+  summary?: string | null
+  emptyTitle?: string
+  emptyLabel?: string
+}
+
+export function ImageComparisonCard({
+  title,
+  sourceSrc,
+  resultSrc,
+  sourceAlt,
+  resultAlt,
+  sourceHref,
+  resultHref,
+  summary,
+  emptyTitle = 'Comparison preview pending',
+  emptyLabel = 'The source image is ready. This area updates when a result image becomes available.',
+}: Readonly<ImageComparisonCardProps>) {
+  const [reveal, setReveal] = useState(50)
+  const [viewMode, setViewMode] = useState<ComparisonViewMode>('split')
+  const [sourceError, setSourceError] = useState(false)
+  const [resultError, setResultError] = useState(false)
+
+  useEffect(() => {
+    setReveal(50)
+    setViewMode(resultSrc ? 'split' : 'source')
+    setSourceError(false)
+    setResultError(false)
+  }, [sourceSrc, resultSrc])
+
+  const hasSourceImage = Boolean(sourceSrc) && !sourceError
+  const hasResultImage = Boolean(resultSrc) && !resultError
+  const canCompare = hasSourceImage && hasResultImage
+  const resolvedViewMode: ComparisonViewMode = canCompare
+    ? viewMode
+    : hasResultImage
+      ? 'result'
+      : 'source'
+  const showSlider = canCompare && resolvedViewMode === 'split'
+
+  return (
+    <article className="comparison-card">
+      <div className="image-preview-heading">
+        <strong>{title}</strong>
+        {summary ? <span className="muted">{summary}</span> : null}
+      </div>
+
+      <div className="comparison-toolbar">
+        <div className="segmented-controls" role="group" aria-label="Comparison view">
+          <button
+            aria-pressed={resolvedViewMode === 'source'}
+            className="button button-secondary"
+            disabled={!hasSourceImage}
+            type="button"
+            onClick={() => setViewMode('source')}
+          >
+            Source
+          </button>
+          <button
+            aria-pressed={resolvedViewMode === 'split'}
+            className="button button-secondary"
+            disabled={!canCompare}
+            type="button"
+            onClick={() => setViewMode('split')}
+          >
+            Split
+          </button>
+          <button
+            aria-pressed={resolvedViewMode === 'result'}
+            className="button button-secondary"
+            disabled={!hasResultImage}
+            type="button"
+            onClick={() => setViewMode('result')}
+          >
+            Result
+          </button>
+        </div>
+        {!canCompare ? <span className="muted">Split view unlocks when both images load.</span> : null}
+      </div>
+
+      <div className="comparison-frame">
+        {resolvedViewMode !== 'result' && hasSourceImage ? (
+          <img
+            alt={sourceAlt}
+            className="comparison-image"
+            loading="lazy"
+            src={sourceSrc}
+            onError={() => setSourceError(true)}
+          />
+        ) : null}
+        {resolvedViewMode === 'result' && hasResultImage ? (
+          <img
+            alt={resultAlt}
+            className="comparison-image"
+            loading="lazy"
+            src={resultSrc ?? undefined}
+            onError={() => setResultError(true)}
+          />
+        ) : null}
+        {showSlider ? (
+          <>
+            <div className="comparison-result" style={{ clipPath: `inset(0 ${100 - reveal}% 0 0)` }}>
+              <img
+                alt={resultAlt}
+                className="comparison-image"
+                loading="lazy"
+                src={resultSrc ?? undefined}
+                onError={() => setResultError(true)}
+              />
+            </div>
+            <div className="comparison-divider" style={{ left: `${reveal}%` }} />
+            <span className="comparison-label comparison-label-source">Source</span>
+            <span className="comparison-label comparison-label-result">Result</span>
+          </>
+        ) : null}
+        {resolvedViewMode === 'source' && hasSourceImage ? (
+          <span className="comparison-label comparison-label-source">Source</span>
+        ) : null}
+        {resolvedViewMode === 'result' && hasResultImage ? (
+          <span className="comparison-label comparison-label-result">Result</span>
+        ) : null}
+        {!canCompare ? (
+          <div className="comparison-empty-state">
+            <strong>{emptyTitle}</strong>
+            <span className="muted">{emptyLabel}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {showSlider ? (
+        <label className="field">
+          <span>Comparison split: {reveal}% result</span>
+          <input
+            aria-label="Comparison split"
+            max={100}
+            min={0}
+            type="range"
+            value={reveal}
+            onChange={(event) => setReveal(Number(event.target.value))}
+          />
+        </label>
+      ) : null}
+
+      <div className="comparison-links">
+        {sourceHref ? (
+          <a href={sourceHref} rel="noreferrer" target="_blank">
+            Open source
+          </a>
+        ) : null}
+        {resultHref ? (
+          <a href={resultHref} rel="noreferrer" target="_blank">
+            Open result
+          </a>
+        ) : null}
+      </div>
+    </article>
+  )
+}

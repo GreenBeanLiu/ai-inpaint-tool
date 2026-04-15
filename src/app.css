@@ -163,6 +163,12 @@ textarea {
   border: 1px solid rgba(31, 75, 122, 0.16);
 }
 
+.button-secondary[aria-pressed='true'] {
+  background: #1f4b7a;
+  color: white;
+  border-color: #1f4b7a;
+}
+
 .button[disabled] {
   opacity: 0.6;
   cursor: not-allowed;
@@ -242,16 +248,49 @@ textarea {
   border-radius: 18px;
   overflow: hidden;
   background:
+    linear-gradient(45deg, rgba(31, 75, 122, 0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(31, 75, 122, 0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(31, 75, 122, 0.04) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(31, 75, 122, 0.04) 75%),
     linear-gradient(135deg, rgba(31, 75, 122, 0.08), rgba(235, 122, 52, 0.12)),
     rgba(255, 255, 255, 0.92);
+  background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px, auto;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0, 0 0;
   border: 1px solid rgba(27, 32, 40, 0.08);
   position: relative;
+  padding: 0.85rem;
+  display: grid;
+  place-items: center;
 }
 
 .mask-editor-stage {
   position: relative;
   width: 100%;
   height: auto;
+  overflow: hidden;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.mask-editor-stage-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 2;
+  max-width: min(320px, calc(100% - 1.5rem));
+  padding: 0.65rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(255, 252, 247, 0.88);
+  border: 1px solid rgba(27, 32, 40, 0.08);
+  backdrop-filter: blur(12px);
+  display: grid;
+  gap: 0.2rem;
+  pointer-events: none;
+}
+
+.mask-editor-stage-badge span {
+  font-size: 0.9rem;
+  color: #5f6570;
 }
 
 .mask-editor-image,
@@ -269,7 +308,11 @@ textarea {
 .mask-editor-canvas {
   cursor: crosshair;
   touch-action: none;
-  opacity: 0.42;
+}
+
+.mask-editor-canvas:focus-visible {
+  outline: 3px solid rgba(31, 75, 122, 0.28);
+  outline-offset: -3px;
 }
 
 .mask-editor-preload {
@@ -283,6 +326,40 @@ textarea {
 .mask-editor-controls {
   display: grid;
   gap: 0.75rem;
+}
+
+.mask-editor-toolbar,
+.mask-editor-presets,
+.brush-size-stepper,
+.segmented-controls,
+.comparison-links {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.segmented-controls .button,
+.brush-size-stepper .button,
+.mask-editor-presets .button {
+  padding: 0.65rem 0.95rem;
+}
+
+.brush-size-stepper {
+  justify-content: space-between;
+}
+
+.brush-size-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 4.5rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(27, 32, 40, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.95rem;
 }
 
 .runtime-capability-grid,
@@ -361,9 +438,18 @@ textarea {
   min-height: 180px;
   border-radius: 18px;
   overflow: hidden;
+  display: grid;
+  place-items: center;
+  position: relative;
   background:
+    linear-gradient(45deg, rgba(31, 75, 122, 0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(31, 75, 122, 0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(31, 75, 122, 0.04) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(31, 75, 122, 0.04) 75%),
     linear-gradient(135deg, rgba(31, 75, 122, 0.08), rgba(235, 122, 52, 0.12)),
     rgba(255, 255, 255, 0.92);
+  background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px, auto;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0, 0 0;
   border: 1px solid rgba(27, 32, 40, 0.08);
 }
 
@@ -376,7 +462,96 @@ textarea {
 }
 
 .image-preview-image {
-  object-fit: cover;
+  object-fit: contain;
+}
+
+.comparison-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.comparison-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.comparison-frame {
+  position: relative;
+  min-height: 280px;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(27, 32, 40, 0.08);
+  background:
+    linear-gradient(45deg, rgba(31, 75, 122, 0.04) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(31, 75, 122, 0.04) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(31, 75, 122, 0.04) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(31, 75, 122, 0.04) 75%),
+    linear-gradient(135deg, rgba(31, 75, 122, 0.08), rgba(235, 122, 52, 0.12)),
+    rgba(255, 255, 255, 0.92);
+  background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px, auto;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0, 0 0;
+}
+
+.comparison-image,
+.comparison-result {
+  position: absolute;
+  inset: 0;
+}
+
+.comparison-result {
+  overflow: hidden;
+}
+
+.comparison-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.comparison-divider {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: rgba(255, 252, 247, 0.95);
+  box-shadow: 0 0 0 1px rgba(27, 32, 40, 0.14);
+  transform: translateX(-1px);
+}
+
+.comparison-label {
+  position: absolute;
+  top: 0.85rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.88);
+  border: 1px solid rgba(27, 32, 40, 0.08);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.comparison-label-source {
+  left: 0.85rem;
+}
+
+.comparison-label-result {
+  right: 0.85rem;
+}
+
+.comparison-empty-state {
+  position: absolute;
+  inset: auto 1rem 1rem 1rem;
+  z-index: 1;
+  max-width: min(420px, 100%);
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 252, 247, 0.92);
+  border: 1px solid rgba(27, 32, 40, 0.08);
+  backdrop-filter: blur(12px);
+  display: grid;
+  gap: 0.3rem;
+  box-shadow: 0 14px 36px rgba(23, 28, 34, 0.08);
 }
 
 .image-preview-empty {
@@ -405,5 +580,21 @@ textarea {
   .mask-editor-header,
   .mask-editor-meta {
     align-items: flex-start;
+  }
+
+  .mask-editor-toolbar {
+    align-items: stretch;
+  }
+
+  .comparison-toolbar {
+    align-items: stretch;
+  }
+
+  .comparison-empty-state {
+    inset: auto 0.75rem 0.75rem 0.75rem;
+  }
+
+  .comparison-frame {
+    min-height: 220px;
   }
 }

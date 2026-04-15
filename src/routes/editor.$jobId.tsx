@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
+import { ImageComparisonCard } from '@/components/image-comparison-card'
 import { ImagePreviewCard } from '@/components/image-preview-card'
 import type { ApiErrorResponse, EditJobDetail, EditJobStatus } from '@/lib/types'
 
@@ -117,6 +118,54 @@ function getFailureDiagnostics(job: EditJobDetail) {
   return JSON.stringify(failureEvent.payloadJson, null, 2)
 }
 
+function getComparisonSummary(job: EditJobDetail) {
+  if (job.resultImageUrl) {
+    return 'Toggle source, split, and result views to inspect the edit before opening full-resolution assets.'
+  }
+
+  if (job.status === 'failed') {
+    return 'No result image was uploaded, so the comparison panel falls back to the source image and failure context.'
+  }
+
+  return 'The source image stays visible here while the app waits for the worker to upload a result.'
+}
+
+function getComparisonEmptyState(job: EditJobDetail) {
+  if (job.status === 'failed') {
+    return {
+      title: 'Result image unavailable',
+      label:
+        'This job failed before a result image was stored. Review the diagnostics and event log below to inspect the failure.',
+    }
+  }
+
+  if (job.status === 'processing') {
+    return {
+      title: 'Result image processing',
+      label:
+        'The worker is still generating the edit. This panel refreshes into split view automatically once the result upload finishes.',
+    }
+  }
+
+  return {
+    title: 'Result image pending',
+    label:
+      'The job is still queued for processing. You can inspect the source now, and the comparison becomes interactive after the first result upload.',
+  }
+}
+
+function getResultEmptyLabel(job: EditJobDetail) {
+  if (job.status === 'failed') {
+    return 'No result image was uploaded because the job failed.'
+  }
+
+  if (job.status === 'processing') {
+    return 'Result image is still rendering.'
+  }
+
+  return 'No result image is available yet.'
+}
+
 function EditorJobPage() {
   const { jobId } = Route.useParams()
   const [job, setJob] = useState<EditJobDetail | null>(null)
@@ -203,6 +252,7 @@ function EditorJobPage() {
   const autoRefresh = shouldAutoRefresh(job)
   const statusSummary = getStatusSummary(job)
   const failureDiagnostics = getFailureDiagnostics(job)
+  const comparisonEmptyState = getComparisonEmptyState(job)
 
   return (
     <div className="stack">
@@ -274,6 +324,21 @@ function EditorJobPage() {
         </div>
       </section>
 
+      <section className="panel">
+        <ImageComparisonCard
+          emptyLabel={comparisonEmptyState.label}
+          emptyTitle={comparisonEmptyState.title}
+          resultAlt={`Result comparison image for job ${job.id}`}
+          resultHref={job.resultImageUrl}
+          resultSrc={job.resultImageUrl}
+          sourceAlt={`Source comparison image for job ${job.id}`}
+          sourceHref={job.sourceImageUrl}
+          sourceSrc={job.sourceImageUrl}
+          summary={getComparisonSummary(job)}
+          title="Source vs result"
+        />
+      </section>
+
       <section className="panel detail-grid">
         <ImagePreviewCard
           alt={`Source image for job ${job.id}`}
@@ -298,7 +363,7 @@ function EditorJobPage() {
         />
         <ImagePreviewCard
           alt={`Result image for job ${job.id}`}
-          emptyLabel="No result image is available yet."
+          emptyLabel={getResultEmptyLabel(job)}
           href={job.resultImageUrl}
           src={job.resultImageUrl}
           summary={formatImageSummary([
