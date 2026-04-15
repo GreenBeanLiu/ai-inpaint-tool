@@ -232,6 +232,13 @@ textarea {
 .mask-editor {
   display: grid;
   gap: 1rem;
+  outline: none;
+}
+
+.mask-editor:focus-visible {
+  outline: 3px solid rgba(31, 75, 122, 0.22);
+  outline-offset: 6px;
+  border-radius: 24px;
 }
 
 .mask-editor-header,
@@ -244,7 +251,6 @@ textarea {
 }
 
 .mask-editor-stage-frame {
-  min-height: 240px;
   border-radius: 18px;
   overflow: hidden;
   background:
@@ -258,18 +264,47 @@ textarea {
   background-position: 0 0, 0 10px, 10px -10px, -10px 0, 0 0;
   border: 1px solid rgba(27, 32, 40, 0.08);
   position: relative;
+}
+
+.mask-editor-workspace {
+  display: grid;
+  gap: 0.85rem;
   padding: 0.85rem;
+}
+
+.mask-editor-workspace-toolbar,
+.mask-editor-zoom-controls {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.mask-editor-workspace-toolbar {
+  justify-content: space-between;
+}
+
+.mask-editor-workspace-viewport {
+  min-height: clamp(280px, 62vh, 720px);
+  overflow: hidden;
   display: grid;
   place-items: center;
+  position: relative;
 }
 
 .mask-editor-stage {
   position: relative;
-  width: 100%;
-  height: auto;
-  overflow: hidden;
   border-radius: 16px;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.7);
+  transform-origin: center;
+  transition: transform 120ms ease-out;
+  will-change: transform;
+  box-shadow: 0 20px 48px rgba(27, 32, 40, 0.12);
+}
+
+.mask-editor-stage[data-panning='true'] {
+  transition: none;
 }
 
 .mask-editor-stage-badge {
@@ -310,9 +345,13 @@ textarea {
   touch-action: none;
 }
 
-.mask-editor-canvas:focus-visible {
-  outline: 3px solid rgba(31, 75, 122, 0.28);
-  outline-offset: -3px;
+.mask-editor-canvas[data-space-panning='true'],
+.mask-editor-stage[data-panning='true'] .mask-editor-canvas {
+  cursor: grab;
+}
+
+.mask-editor-stage[data-panning='true'] .mask-editor-canvas {
+  cursor: grabbing;
 }
 
 .mask-editor-preload {
@@ -360,6 +399,16 @@ textarea {
   background: rgba(255, 255, 255, 0.8);
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
   font-size: 0.95rem;
+}
+
+@media (max-width: 720px) {
+  .mask-editor-workspace-toolbar {
+    align-items: flex-start;
+  }
+
+  .mask-editor-workspace-viewport {
+    min-height: 320px;
+  }
 }
 
 .runtime-capability-grid,
