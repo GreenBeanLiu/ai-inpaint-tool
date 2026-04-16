@@ -15,6 +15,9 @@ interface ImageComparisonCardProps {
   summary?: string | null
   emptyTitle?: string
   emptyLabel?: string
+  eyebrow?: string | null
+  badge?: string | null
+  highlight?: 'default' | 'success' | 'failed' | 'active'
   sourceActions?: ImageCardAction[]
   resultActions?: ImageCardAction[]
   emptyActions?: ImageCardAction[]
@@ -31,6 +34,9 @@ export function ImageComparisonCard({
   summary,
   emptyTitle = 'Comparison preview pending',
   emptyLabel = 'The source image is ready. This area updates when a result image becomes available.',
+  eyebrow,
+  badge,
+  highlight = 'default',
   sourceActions = [],
   resultActions = [],
   emptyActions = [],
@@ -74,12 +80,37 @@ export function ImageComparisonCard({
           title: emptyTitle,
           label: emptyLabel,
         }
+  const quickActions = hasResultAsset ? resultActions : sourceActions
 
   return (
-    <article className="comparison-card">
-      <div className="image-preview-heading">
-        <strong>{title}</strong>
-        {summary ? <span className="muted">{summary}</span> : null}
+    <article className={`comparison-card comparison-card-${highlight}`}>
+      <div className="comparison-card-head">
+        <div className="image-preview-heading">
+          {eyebrow || badge ? (
+            <div className="image-preview-meta">
+              {eyebrow ? <span className="image-preview-eyebrow">{eyebrow}</span> : null}
+              {badge ? <span className="comparison-card-badge">{badge}</span> : null}
+            </div>
+          ) : null}
+          <strong>{title}</strong>
+          {summary ? <span className="muted">{summary}</span> : null}
+        </div>
+        {quickActions.length > 0 ? (
+          <div className="actions comparison-primary-actions">
+            {quickActions.map((action) => (
+              <a
+                className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
+                download={action.download}
+                href={action.href}
+                key={`${action.label}-${action.href}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {action.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="comparison-toolbar">
@@ -199,57 +230,6 @@ export function ImageComparisonCard({
           />
         </label>
       ) : null}
-
-      <div className="comparison-asset-grid">
-        <div className="job-card stack">
-          <strong>Source asset</strong>
-          <span className="muted">
-            {hasSourceAsset
-              ? 'Open the original upload or save a local copy.'
-              : 'No source asset actions are available.'}
-          </span>
-          {sourceActions.length > 0 ? (
-            <div className="actions">
-              {sourceActions.map((action) => (
-                <a
-                  className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
-                  download={action.download}
-                  href={action.href}
-                  key={`${action.label}-${action.href}`}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {action.label}
-                </a>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <div className="job-card stack">
-          <strong>Result asset</strong>
-          <span className="muted">
-            {hasResultAsset
-              ? 'Open or download the returned edit without leaving the compare view.'
-              : 'The result asset is not available yet. Keep this page open or refresh when processing finishes.'}
-          </span>
-          {resultActions.length > 0 ? (
-            <div className="actions">
-              {resultActions.map((action) => (
-                <a
-                  className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
-                  download={action.download}
-                  href={action.href}
-                  key={`${action.label}-${action.href}`}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {action.label}
-                </a>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
     </article>
   )
 }

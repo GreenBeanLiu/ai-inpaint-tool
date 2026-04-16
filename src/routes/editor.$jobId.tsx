@@ -3,7 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { ImageComparisonCard } from '@/components/image-comparison-card'
 import { ImagePreviewCard, type ImageCardAction } from '@/components/image-preview-card'
-import type { ApiErrorResponse, EditJobDetail, EditJobStatus } from '@/lib/types'
+import type { ApiErrorResponse, EditJobDetail, EditJobEventRecord, EditJobStatus } from '@/lib/types'
 
 export const Route = createFileRoute('/editor/$jobId')({
   component: EditorJobPage,
@@ -57,6 +57,23 @@ function formatFileSize(bytes: number | null) {
 
 function formatImageSummary(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join(' • ')
+}
+
+function formatStatusLabel(status: EditJobStatus) {
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+function getStatusPillClass(status: EditJobStatus) {
+  switch (status) {
+    case 'succeeded':
+      return 'status-pill-succeeded'
+    case 'failed':
+      return 'status-pill-failed'
+    case 'processing':
+      return 'status-pill-processing'
+    default:
+      return 'status-pill-queued'
+  }
 }
 
 function getFilenameExtensionFromMimeType(mimeType: string | null | undefined) {
@@ -128,72 +145,77 @@ function getAssetActions(
   ]
 }
 
-function getStatusSummary(job: EditJobDetail) {
-  if (job.status === 'failed' && job.stage === 'dispatch_failed') {
+function sortPrimaryActions(actions: ImageCardAction[]) {
+  return [...actions].sort((left, right) => Number(Boolean(right.download)) - Number(Boolean(left.download)))
+}
+
+function getHeroCopy(job: EditJobDetail) {
+  if (job.status === 'succeeded') {
     return {
-      className: 'alert alert-error',
-      title: 'Trigger dispatch failed',
+      kicker: 'Result Ready',
+      title: 'Edited output ready for review.',
       description:
-        'The uploads and database write completed, but the background run was not dispatched. Check the error fields and event payload below for the exact failure.',
+        'Compare the final image against the original, keep the mask close for context, and export the delivered asset directly from this page.',
     }
   }
 
   if (job.status === 'failed') {
     return {
-      className: 'alert alert-error',
-      title: 'Job failed during processing',
+      kicker: 'Run Needs Attention',
+      title: 'This edit stopped before producing a final output.',
       description:
-        'The worker reported a real runtime failure. The app is preserving the failed state and diagnostics instead of fabricating a completed result.',
-    }
-  }
-
-  if (job.status === 'succeeded') {
-    return {
-      className: 'alert',
-      title: 'Job completed',
-      description:
-        'The provider returned an image, the result was uploaded to storage, and polling has stopped because the job is in a terminal state.',
+        'The source image and mask are preserved so the failed run stays inspectable, while the raw diagnostics stay tucked behind lightweight disclosures.',
     }
   }
 
   if (job.status === 'processing') {
     return {
-      className: 'alert',
-      title: 'Job is processing',
+      kicker: 'Rendering In Progress',
+      title: 'The worker is still generating the final image.',
       description:
-        'The worker has started. This page refreshes every 3 seconds until the job succeeds or fails.',
+        'This page keeps the source visible while the result uploads, then it promotes the finished output into the review area automatically.',
     }
   }
 
   return {
-    className: 'alert',
-    title: 'Job is queued',
+    kicker: 'Queued For Processing',
+    title: 'The edit is staged and waiting for worker pickup.',
     description:
-      'The job is waiting for dispatch completion or worker pickup. This page refreshes every 3 seconds while the job remains active.',
+      'Use the source and mask previews to verify the setup now. The result area will update in place once processing begins and the output is stored.',
   }
 }
 
-function getFailureDiagnostics(job: EditJobDetail) {
+function getHeroSupportNote(job: EditJobDetail, autoRefresh: boolean) {
+  if (job.status === 'failed' && job.stage === 'dispatch_failed') {
+    return 'Uploads completed, but the background run did not dispatch. Expand the diagnostic payload if you need the exact handoff failure.'
+  }
+
+  if (job.status === 'failed') {
+    return job.errorMessage ?? 'The worker reported a runtime failure before a result asset was stored.'
+  }
+
+  if (autoRefresh) {
+    return `Auto-refresh is active every ${autoRefreshIntervalMs / 1000} seconds until this job reaches a terminal state.`
+  }
+
+  return 'This job is in a terminal state, so the page now behaves like a stable result snapshot.'
+}
+
+function getFailureDiagnosticEvent(job: EditJobDetail) {
   if (job.status !== 'failed') {
     return null
   }
 
-  const failureEvent = job.events.find((event) => event.type === 'job.failed') ?? job.events[0] ?? null
-
-  if (!failureEvent?.payloadJson) {
-    return null
-  }
-
-  return JSON.stringify(failureEvent.payloadJson, null, 2)
+  return job.events.find((event) => event.type === 'job.failed') ?? job.events[0] ?? null
 }
 
 function getComparisonSummary(job: EditJobDetail) {
   if (job.resultImageUrl) {
-    return 'Toggle source, split, and result views to inspect the edit before opening full-resolution assets.'
+    return 'Toggle source, split, and result views to inspect the edit before opening the full-resolution asset.'
   }
 
   if (job.status === 'failed') {
-    return 'No result image was uploaded, so the comparison panel falls back to the source image and failure context.'
+    return 'No result image was uploaded, so the review canvas stays focused on the source while diagnostics remain available below.'
   }
 
   return 'The source image stays visible here while the app waits for the worker to upload a result.'
@@ -204,7 +226,7 @@ function getComparisonEmptyState(job: EditJobDetail) {
     return {
       title: 'Result image unavailable',
       label:
-        'This job failed before a result image was stored. Review the diagnostics and event log below to inspect the failure.',
+        'This job failed before a result image was stored. Review the diagnostic disclosure or event log below when you need the failure payload.',
     }
   }
 
@@ -223,6 +245,34 @@ function getComparisonEmptyState(job: EditJobDetail) {
   }
 }
 
+function getComparisonBadge(job: EditJobDetail) {
+  if (job.status === 'succeeded') {
+    return 'Ready'
+  }
+
+  if (job.status === 'failed') {
+    return 'Source only'
+  }
+
+  if (job.resultImageUrl) {
+    return 'Preview available'
+  }
+
+  return 'Pending'
+}
+
+function getComparisonHighlight(job: EditJobDetail) {
+  if (job.status === 'succeeded') {
+    return 'success' as const
+  }
+
+  if (job.status === 'failed') {
+    return 'failed' as const
+  }
+
+  return 'active' as const
+}
+
 function getResultEmptyLabel(job: EditJobDetail) {
   if (job.status === 'failed') {
     return 'No result image was uploaded because the job failed.'
@@ -233,6 +283,65 @@ function getResultEmptyLabel(job: EditJobDetail) {
   }
 
   return 'No result image is available yet.'
+}
+
+function getResultCardBadge(job: EditJobDetail) {
+  if (job.status === 'succeeded') {
+    return 'Delivered'
+  }
+
+  if (job.resultImageUrl) {
+    return 'Available'
+  }
+
+  if (job.status === 'failed') {
+    return 'Unavailable'
+  }
+
+  return 'Pending'
+}
+
+function renderJson(value: unknown) {
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+}
+
+function JsonDisclosure({
+  title,
+  description,
+  value,
+  tone = 'default',
+}: Readonly<{
+  title: string
+  description?: string
+  value: unknown
+  tone?: 'default' | 'danger'
+}>) {
+  return (
+    <details className={`diagnostic-disclosure${tone === 'danger' ? ' diagnostic-disclosure-danger' : ''}`}>
+      <summary className="diagnostic-summary">
+        <div className="stack">
+          <strong>{title}</strong>
+          {description ? <span className="muted">{description}</span> : null}
+        </div>
+        <span className="diagnostic-summary-action">Expand</span>
+      </summary>
+      <pre className="code diagnostic-code">{renderJson(value)}</pre>
+    </details>
+  )
+}
+
+function EventPayloadDisclosure({ event }: Readonly<{ event: EditJobEventRecord }>) {
+  if (!event.payloadJson) {
+    return null
+  }
+
+  return (
+    <JsonDisclosure
+      description="Expand only when you need the raw event payload."
+      title="Payload JSON"
+      value={event.payloadJson}
+    />
+  )
 }
 
 function EditorJobPage() {
@@ -303,7 +412,9 @@ function EditorJobPage() {
       <section className="panel stack">
         <strong>Failed to load job</strong>
         <span className="muted">{error}</span>
-        <Link to="/">Back to queue</Link>
+        <Link className="inline-link" to="/">
+          Back to queue
+        </Link>
       </section>
     )
   }
@@ -312,16 +423,18 @@ function EditorJobPage() {
     return (
       <section className="panel stack">
         <strong>Job not found</strong>
-        <Link to="/">Back to queue</Link>
+        <Link className="inline-link" to="/">
+          Back to queue
+        </Link>
       </section>
     )
   }
 
   const latestEvent = job.events[0] ?? null
   const autoRefresh = shouldAutoRefresh(job)
-  const statusSummary = getStatusSummary(job)
-  const failureDiagnostics = getFailureDiagnostics(job)
   const comparisonEmptyState = getComparisonEmptyState(job)
+  const failureDiagnosticEvent = getFailureDiagnosticEvent(job)
+  const heroCopy = getHeroCopy(job)
   const sourceActions = getAssetActions(
     job.sourceImageUrl,
     {
@@ -354,186 +467,282 @@ function EditorJobPage() {
       url: job.resultImageUrl,
     }),
   )
+  const heroActions = job.resultImageUrl ? sortPrimaryActions(resultActions) : sourceActions.slice(0, 1)
 
   return (
-    <div className="stack">
-      <section className="panel stack">
-        <div className="actions" style={{ justifyContent: 'space-between' }}>
-          <div>
-            <div className="hero-kicker">Editor Job</div>
-            <h1 style={{ margin: '0.2rem 0 0.4rem' }}>{job.id}</h1>
-          </div>
-          <div className="actions" style={{ justifyContent: 'flex-end' }}>
-            <span className="status-pill">{job.status}</span>
-            <button
-              className="button"
-              disabled={loading || isRefreshing}
-              type="button"
-              onClick={() => void loadJob({ background: Boolean(job) })}
-            >
-              {isRefreshing ? 'Refreshing...' : 'Refresh now'}
-            </button>
-          </div>
-        </div>
-        <p className="muted">
-          {autoRefresh
-            ? `Auto-refresh is on every ${autoRefreshIntervalMs / 1000} seconds while the job is queued or processing.`
-            : 'Auto-refresh is off because the job is in a terminal state.'}
-        </p>
-        <div className={statusSummary.className}>
-          <strong>{statusSummary.title}</strong>
-          <div>{statusSummary.description}</div>
-        </div>
-        {error ? (
-          <div className="alert alert-error">
-            <strong>Refresh failed</strong>
-            <div>{error}</div>
-            <div className="muted">Showing the last persisted snapshot loaded successfully.</div>
-          </div>
-        ) : null}
-        {failureDiagnostics ? (
-          <div className="alert alert-error">
-            <strong>Failure diagnostics</strong>
-            <div className="muted">
-              The latest worker failure payload is surfaced here so you do not have to scroll to the event log first.
+    <div className="job-detail-page">
+      <section className={`job-hero job-hero-${job.status}`}>
+        <div className="job-hero-top">
+          <div className="job-hero-copy">
+            <Link className="inline-link" to="/">
+              Back to queue
+            </Link>
+            <div className="hero-kicker">{heroCopy.kicker}</div>
+            <h1 className="job-hero-title">{heroCopy.title}</h1>
+            <p className="job-hero-description muted">{heroCopy.description}</p>
+            <div className="job-hero-note">
+              <span className="job-id">{job.id}</span>
+              <span className="muted">{getHeroSupportNote(job, autoRefresh)}</span>
             </div>
-            <pre className="code">{failureDiagnostics}</pre>
+          </div>
+
+          <div className="job-hero-toolbar">
+            <div className="job-hero-statuses">
+              <span className={`status-pill ${getStatusPillClass(job.status)}`}>
+                {formatStatusLabel(job.status)}
+              </span>
+              <span className={`inline-status ${autoRefresh ? 'is-pending' : ''}`}>
+                {autoRefresh ? `Auto-refresh ${autoRefreshIntervalMs / 1000}s` : 'Snapshot locked'}
+              </span>
+            </div>
+            <div className="actions job-hero-actions">
+              {heroActions.map((action) => (
+                <a
+                  className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
+                  download={action.download}
+                  href={action.href}
+                  key={`${action.label}-${action.href}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {action.label}
+                </a>
+              ))}
+              <button
+                className={`button${heroActions.length > 0 ? ' button-secondary' : ''}`}
+                disabled={loading || isRefreshing}
+                type="button"
+                onClick={() => void loadJob({ background: Boolean(job) })}
+              >
+                {isRefreshing ? 'Refreshing...' : 'Refresh now'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {error ? (
+          <div className="job-refresh-alert">
+            <strong>Refresh failed</strong>
+            <span className="muted">{error}</span>
+            <span className="muted">Showing the last successfully loaded snapshot.</span>
           </div>
         ) : null}
 
-        <div className="detail-grid">
-          <div className="job-card">
-            <strong>Stage</strong>
-            <div>{job.stage ?? 'n/a'}</div>
+        {job.status === 'failed' && (job.errorCode || job.errorMessage) ? (
+          <div className="job-inline-diagnostic">
+            <strong>{job.errorCode ?? 'Worker failure'}</strong>
+            <span className="muted">{job.errorMessage ?? 'No additional error message was recorded.'}</span>
           </div>
-          <div className="job-card">
-            <strong>Progress</strong>
-            <div>{job.progress ?? 0}%</div>
-          </div>
-          <div className="job-card">
-            <strong>Provider</strong>
-            <div>{job.provider}</div>
-          </div>
-          <div className="job-card">
-            <strong>Model</strong>
-            <div>{job.model}</div>
-          </div>
-          <div className="job-card">
-            <strong>Last loaded</strong>
-            <div>{formatTimestamp(lastLoadedAt)}</div>
-          </div>
+        ) : null}
+
+        <div className="job-hero-metrics">
+          <article className="job-hero-metric">
+            <span className="stat-label">Stage</span>
+            <strong>{job.stage ?? 'n/a'}</strong>
+            <span className="muted">Current pipeline checkpoint</span>
+          </article>
+          <article className="job-hero-metric">
+            <span className="stat-label">Progress</span>
+            <strong>{job.progress ?? 0}%</strong>
+            <span className="muted">
+              {job.finishedAt ? `Finished ${formatTimestamp(job.finishedAt)}` : 'Live worker progress'}
+            </span>
+          </article>
+          <article className="job-hero-metric">
+            <span className="stat-label">Provider</span>
+            <strong>{job.provider}</strong>
+            <span className="muted">{job.model}</span>
+          </article>
+          <article className="job-hero-metric">
+            <span className="stat-label">Canvas</span>
+            <strong>{job.width && job.height ? `${job.width} x ${job.height}` : 'Unknown'}</strong>
+            <span className="muted">{formatFileSize(job.fileSize) ?? 'Size unavailable'}</span>
+          </article>
+          <article className="job-hero-metric">
+            <span className="stat-label">Processing</span>
+            <strong>{formatProcessingTime(job.processingMs)}</strong>
+            <span className="muted">Created {formatTimestamp(job.createdAt)}</span>
+          </article>
+          <article className="job-hero-metric">
+            <span className="stat-label">Last Loaded</span>
+            <strong>{formatTimestamp(lastLoadedAt)}</strong>
+            <span className="muted">
+              {latestEvent ? `${latestEvent.type} • ${formatTimestamp(latestEvent.createdAt)}` : 'No events yet'}
+            </span>
+          </article>
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel stack">
+        <div className="section-heading">
+          <div className="section-heading-copy">
+            <div className="section-eyebrow">Review</div>
+            <h2 className="subsection-title">Inspect the edit before export</h2>
+          </div>
+          <span className="muted">Source and result stay in one workspace while the output is pending or ready.</span>
+        </div>
         <ImageComparisonCard
+          badge={getComparisonBadge(job)}
+          emptyActions={sourceActions}
           emptyLabel={comparisonEmptyState.label}
           emptyTitle={comparisonEmptyState.title}
+          eyebrow="Result Viewer"
+          highlight={getComparisonHighlight(job)}
+          resultActions={resultActions}
           resultAlt={`Result comparison image for job ${job.id}`}
           resultHref={job.resultImageUrl}
           resultSrc={job.resultImageUrl}
-          resultActions={resultActions}
-          sourceAlt={`Source comparison image for job ${job.id}`}
           sourceActions={sourceActions}
+          sourceAlt={`Source comparison image for job ${job.id}`}
           sourceHref={job.sourceImageUrl}
           sourceSrc={job.sourceImageUrl}
           summary={getComparisonSummary(job)}
-          title="Source vs result"
-          emptyActions={sourceActions}
+          title={job.status === 'succeeded' ? 'Final output review' : 'Source and result review'}
         />
       </section>
 
-      <section className="panel detail-grid">
-        <ImagePreviewCard
-          alt={`Source image for job ${job.id}`}
-          actions={sourceActions}
-          href={job.sourceImageUrl}
-          src={job.sourceImageUrl}
-          summary={formatImageSummary([
-            job.width && job.height ? `${job.width} x ${job.height}` : null,
-            job.sourceMimeType,
-            formatFileSize(job.fileSize),
-          ])}
-          title="Source image"
-        />
-        <ImagePreviewCard
-          alt={`Mask image for job ${job.id}`}
-          actions={maskActions}
-          href={job.maskImageUrl}
-          src={job.maskImageUrl}
-          summary={formatImageSummary([
-            job.width && job.height ? `${job.width} x ${job.height}` : null,
-            'Uploaded mask',
-          ])}
-          title="Mask image"
-        />
-        <ImagePreviewCard
-          alt={`Result image for job ${job.id}`}
-          actions={resultActions}
-          emptyLabel={getResultEmptyLabel(job)}
-          href={job.resultImageUrl}
-          src={job.resultImageUrl}
-          summary={formatImageSummary([
-            job.resultMimeType,
-            job.status === 'succeeded' ? 'Completed output' : null,
-          ])}
-          title="Result image"
-        />
-      </section>
+      <section className="panel stack">
+        <div className="section-heading">
+          <div className="section-heading-copy">
+            <div className="section-eyebrow">Assets</div>
+            <h2 className="subsection-title">Source, mask, and delivered output</h2>
+          </div>
+          <span className="muted">The result stays primary while the original inputs remain close for reference.</span>
+        </div>
 
-      <section className="panel detail-grid">
-        <div>
-          <strong>Prompt</strong>
-          <div>{job.prompt ?? 'No prompt provided.'}</div>
-        </div>
-        <div>
-          <strong>Error Code</strong>
-          <div>{job.errorCode ?? 'None'}</div>
-        </div>
-        <div>
-          <strong>Error Message</strong>
-          <div>{job.errorMessage ?? 'None'}</div>
-        </div>
-        <div>
-          <strong>Timing</strong>
-          <div>
-            Created {new Date(job.createdAt).toLocaleString()}
-            {job.startedAt ? `, started ${new Date(job.startedAt).toLocaleString()}` : ''}
-            {job.finishedAt ? `, finished ${new Date(job.finishedAt).toLocaleString()}` : ''}
+        <div className="job-assets-layout">
+          <div className="job-asset job-asset-result">
+            <ImagePreviewCard
+              actions={resultActions}
+              alt={`Result image for job ${job.id}`}
+              badge={getResultCardBadge(job)}
+              emptyLabel={getResultEmptyLabel(job)}
+              eyebrow="Primary Output"
+              href={job.resultImageUrl}
+              src={job.resultImageUrl}
+              summary={formatImageSummary([
+                job.resultMimeType,
+                job.status === 'succeeded' ? 'Final render stored' : null,
+                formatFileSize(job.fileSize),
+              ])}
+              title="Final result"
+              variant="result"
+            />
+          </div>
+          <div className="job-asset job-asset-source">
+            <ImagePreviewCard
+              actions={sourceActions}
+              alt={`Source image for job ${job.id}`}
+              badge="Original"
+              eyebrow="Source"
+              href={job.sourceImageUrl}
+              src={job.sourceImageUrl}
+              summary={formatImageSummary([
+                job.width && job.height ? `${job.width} x ${job.height}` : null,
+                job.sourceMimeType,
+                formatFileSize(job.fileSize),
+              ])}
+              title="Source image"
+              variant="supporting"
+            />
+          </div>
+          <div className="job-asset job-asset-mask">
+            <ImagePreviewCard
+              actions={maskActions}
+              alt={`Mask image for job ${job.id}`}
+              badge="Edit region"
+              eyebrow="Mask"
+              href={job.maskImageUrl}
+              src={job.maskImageUrl}
+              summary={formatImageSummary([
+                job.width && job.height ? `${job.width} x ${job.height}` : null,
+                'Uploaded mask',
+              ])}
+              title="Mask image"
+              variant="supporting"
+            />
           </div>
         </div>
-        <div>
-          <strong>Images</strong>
-          <div>
-            {job.width && job.height ? `${job.width} x ${job.height}` : 'Unknown dimensions'}
-          </div>
-        </div>
-        <div>
-          <strong>Processing Time</strong>
-          <div>{formatProcessingTime(job.processingMs)}</div>
-        </div>
-        <div>
-          <strong>Latest Event</strong>
-          <div>{latestEvent ? `${latestEvent.type} at ${formatTimestamp(latestEvent.createdAt)}` : 'No events recorded.'}</div>
-        </div>
       </section>
 
-      <section className="panel">
-        <h2>Event log</h2>
+      <section className="job-info-grid">
+        <article className="panel stack prompt-panel">
+          <div className="section-eyebrow">Prompt</div>
+          <h2 className="subsection-title">Edit instruction</h2>
+          <p className="job-prompt-copy">{job.prompt ?? 'No prompt was provided for this edit.'}</p>
+          <div className="job-prompt-meta">
+            <span className="inline-status">{job.provider}</span>
+            <span className="inline-status">{job.model}</span>
+            <span className="inline-status">{job.width && job.height ? `${job.width} x ${job.height}` : 'Unknown size'}</span>
+          </div>
+        </article>
+
+        <article className="panel stack">
+          <div className="section-eyebrow">Run Details</div>
+          <h2 className="subsection-title">Execution snapshot</h2>
+          <div className="job-detail-list">
+            <div className="job-detail-row">
+              <span className="job-detail-label">Job ID</span>
+              <span className="job-id">{job.id}</span>
+            </div>
+            <div className="job-detail-row">
+              <span className="job-detail-label">Created</span>
+              <span>{formatTimestamp(job.createdAt)}</span>
+            </div>
+            <div className="job-detail-row">
+              <span className="job-detail-label">Started</span>
+              <span>{formatTimestamp(job.startedAt)}</span>
+            </div>
+            <div className="job-detail-row">
+              <span className="job-detail-label">Finished</span>
+              <span>{formatTimestamp(job.finishedAt)}</span>
+            </div>
+            <div className="job-detail-row">
+              <span className="job-detail-label">Latest event</span>
+              <span>{latestEvent ? `${latestEvent.type} at ${formatTimestamp(latestEvent.createdAt)}` : 'No events recorded.'}</span>
+            </div>
+            <div className="job-detail-row">
+              <span className="job-detail-label">Error code</span>
+              <span>{job.errorCode ?? 'None'}</span>
+            </div>
+            <div className="job-detail-row">
+              <span className="job-detail-label">Error message</span>
+              <span>{job.errorMessage ?? 'None'}</span>
+            </div>
+          </div>
+
+          {failureDiagnosticEvent?.payloadJson ? (
+            <JsonDisclosure
+              description="Expanded worker diagnostics are available here without dominating the page."
+              title="Failure diagnostics"
+              tone="danger"
+              value={failureDiagnosticEvent.payloadJson}
+            />
+          ) : null}
+        </article>
+      </section>
+
+      <section className="panel stack">
+        <div className="section-heading">
+          <div className="section-heading-copy">
+            <div className="section-eyebrow">Event Log</div>
+            <h2 className="subsection-title">Timeline and payloads</h2>
+          </div>
+          <span className="muted">Messages stay visible, while raw payload JSON is collapsible.</span>
+        </div>
+
         <div className="event-list">
           {job.events.length === 0 ? (
             <div className="muted">No events recorded.</div>
           ) : (
             job.events.map((event) => (
               <article className="event-item" key={event.id}>
-                <div className="actions" style={{ justifyContent: 'space-between' }}>
+                <div className="event-item-header">
                   <strong>{event.type}</strong>
-                  <span className="muted">{new Date(event.createdAt).toLocaleString()}</span>
+                  <span className="muted">{formatTimestamp(event.createdAt)}</span>
                 </div>
-                {event.message ? <p>{event.message}</p> : null}
-                {event.payloadJson ? (
-                  <pre className="code">{JSON.stringify(event.payloadJson, null, 2)}</pre>
-                ) : null}
+                {event.message ? <p className="event-message">{event.message}</p> : null}
+                <EventPayloadDisclosure event={event} />
               </article>
             ))
           )}

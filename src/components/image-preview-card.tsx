@@ -15,6 +15,9 @@ interface ImagePreviewCardProps {
   summary?: string | null
   emptyLabel?: string
   actions?: ImageCardAction[]
+  eyebrow?: string | null
+  badge?: string | null
+  variant?: 'default' | 'supporting' | 'result'
 }
 
 export function ImagePreviewCard({
@@ -25,6 +28,9 @@ export function ImagePreviewCard({
   summary,
   emptyLabel = 'No image available yet.',
   actions = [],
+  eyebrow,
+  badge,
+  variant = 'default',
 }: Readonly<ImagePreviewCardProps>) {
   const [hasError, setHasError] = useState(false)
 
@@ -41,8 +47,14 @@ export function ImagePreviewCard({
         : []
 
   return (
-    <article className="image-preview-card">
+    <article className={`image-preview-card image-preview-card-${variant}`}>
       <div className="image-preview-heading">
+        {eyebrow || badge ? (
+          <div className="image-preview-meta">
+            {eyebrow ? <span className="image-preview-eyebrow">{eyebrow}</span> : null}
+            {badge ? <span className="image-preview-badge">{badge}</span> : null}
+          </div>
+        ) : null}
         <strong>{title}</strong>
         {summary ? <span className="muted">{summary}</span> : null}
       </div>
