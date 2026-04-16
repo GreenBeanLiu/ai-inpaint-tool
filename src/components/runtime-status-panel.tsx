@@ -24,14 +24,14 @@ const runtimeSections: Array<{
 
 function getRuntimeSummary(report: RuntimeCheckReport | null) {
   if (!report) {
-    return 'Runtime readiness has not been checked yet.'
+    return 'Checking whether the local runtime is ready to list jobs, create edits, and finish the default masked editing path.'
   }
 
   if (report.overall.canCompleteDefaultOpenRouterJob) {
-    return 'This machine can accept jobs, start the worker, and finish the default OpenRouter path.'
+    return 'This setup can list jobs, accept uploads, dispatch the worker, and finish the default masked edit path.'
   }
 
-  return 'The app can render locally, but the current env still blocks at least one required runtime path.'
+  return 'The app is reachable, but at least one required runtime dependency is still blocking full edit execution.'
 }
 
 function getCapabilityStatus(isReady: boolean) {
@@ -91,19 +91,24 @@ export function RuntimeStatusPanel({
   const blockers = report?.overall.blockers ?? []
 
   return (
-    <section className="panel stack">
-      <div className="actions" style={{ justifyContent: 'space-between' }}>
-        <div>
-          <div className="hero-kicker">Runtime Check</div>
-          <h2 style={{ margin: 0 }}>Local readiness is explicit</h2>
+    <section className="panel stack runtime-panel">
+      <div className="section-heading">
+        <div className="section-heading-copy">
+          <div className="section-eyebrow">Runtime</div>
+          <h2 className="section-title">Runtime health</h2>
+          <p className="section-description muted">{getRuntimeSummary(report)}</p>
         </div>
-        <button className="button" type="button" onClick={() => void onRefresh()} disabled={isLoading}>
+        <button
+          className="button button-secondary"
+          type="button"
+          onClick={() => void onRefresh()}
+          disabled={isLoading}
+        >
           {isLoading ? 'Refreshing...' : 'Refresh runtime'}
         </button>
       </div>
 
-      <p className="muted">{getRuntimeSummary(report)}</p>
-      {checkedAt ? <div className="muted">Last checked: {checkedAt}</div> : null}
+      {checkedAt ? <div className="runtime-timestamp muted">Last checked: {checkedAt}</div> : null}
       {error ? <div className="alert alert-error">{error}</div> : null}
 
       {report ? (

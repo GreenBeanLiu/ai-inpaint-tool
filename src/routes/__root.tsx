@@ -21,11 +21,11 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'AI Inpaint Tool',
+        title: 'AI Inpaint Studio',
       },
       {
         name: 'description',
-        content: 'Local AI image inpainting MVP scaffold with Prisma-backed job intake.',
+        content: 'Local AI image inpainting workspace with masked editing job intake and runtime visibility.',
       },
     ],
   }),
@@ -38,13 +38,16 @@ function RootComponent() {
       <div className="app-shell">
         <div className="app-frame">
           <header className="app-header">
-            <div>
-              <div className="app-brand">AI Inpaint Tool</div>
-              <div className="muted">Local queue intake with explicit integration gaps</div>
+            <div className="app-brand-row">
+              <div aria-hidden="true" className="app-brand-mark" />
+              <div>
+                <div className="app-brand">AI Inpaint Studio</div>
+                <div className="muted">Mask-based image editing workspace</div>
+              </div>
             </div>
-            <nav className="actions">
-              <Link to="/" activeProps={{ 'aria-current': 'page' }}>
-                Job Intake
+            <nav className="actions app-nav">
+              <Link className="nav-link" to="/" activeProps={{ 'aria-current': 'page' }}>
+                New Edit
               </Link>
             </nav>
           </header>
@@ -64,7 +67,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body>{children}<Scripts /></body>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   )
 }
