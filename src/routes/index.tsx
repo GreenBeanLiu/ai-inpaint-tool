@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { ImagePreviewCard } from '@/components/image-preview-card'
 import { MaskPaintEditor } from '@/components/mask-paint-editor'
+import { ModalShell } from '@/components/modal-shell'
 import { RuntimeStatusPanel } from '@/components/runtime-status-panel'
 import type { ApiErrorResponse, EditJobRecord, RuntimeCheckReport } from '@/lib/types'
 
@@ -76,8 +77,10 @@ function HomePage() {
   const [prompt, setPrompt] = useState('')
   const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [maskFile, setMaskFile] = useState<File | null>(null)
+  const [draftMaskFile, setDraftMaskFile] = useState<File | null>(null)
   const [jobs, setJobs] = useState<EditJobRecord[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isMaskEditorOpen, setIsMaskEditorOpen] = useState(false)
   const [isRefreshingRuntime, setIsRefreshingRuntime] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -146,6 +149,42 @@ function HomePage() {
       : null
   }
 
+  const handleSourceFileChange = useCallback((file: File | null) => {
+    setSourceFile(file)
+    setMaskFile(null)
+    setDraftMaskFile(null)
+    setIsMaskEditorOpen(false)
+  }, [])
+
+  const handleDraftMaskChange = useCallback((file: File | null) => {
+    setDraftMaskFile(file)
+  }, [])
+
+  function handleOpenMaskEditor() {
+    if (!sourceFile) {
+      setMessage('Choose a source image before opening the mask editor.')
+      return
+    }
+
+    setDraftMaskFile(maskFile)
+    setMessage(null)
+    setIsMaskEditorOpen(true)
+  }
+
+  function handleCancelMaskEditor() {
+    setDraftMaskFile(maskFile)
+    setIsMaskEditorOpen(false)
+  }
+
+  function handleConfirmMaskEditor() {
+    if (!draftMaskFile) {
+      return
+    }
+
+    setMaskFile(draftMaskFile)
+    setIsMaskEditorOpen(false)
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setMessage(null)
@@ -200,6 +239,8 @@ function HomePage() {
       setPrompt('')
       setSourceFile(null)
       setMaskFile(null)
+      setDraftMaskFile(null)
+      setIsMaskEditorOpen(false)
       event.currentTarget.reset()
       await navigate({
         to: '/editor/$jobId',
@@ -280,17 +321,37 @@ function HomePage() {
               <input
                 accept="image/png,image/jpeg,image/webp"
                 name="image"
-                onChange={(event) => setSourceFile(event.target.files?.[0] ?? null)}
+                onChange={(event) => handleSourceFileChange(event.target.files?.[0] ?? null)}
                 required
                 type="file"
               />
             </label>
 
-            <MaskPaintEditor
-              sourceFile={sourceFile}
-              sourceUrl={sourcePreviewUrl}
-              onMaskChange={setMaskFile}
-            />
+            <section className="editor-launcher-card">
+              <div className="editor-launcher-copy">
+                <div className="hero-kicker">Mask workflow</div>
+                <h3 style={{ margin: 0 }}>Paint the editable area in a large workspace.</h3>
+                <p className="muted" style={{ margin: 0 }}>
+                  Open the mask editor when the source image is ready. Cancel keeps the current
+                  confirmed mask, and Confirm replaces the mask preview and file used for submit.
+                </p>
+              </div>
+              <div className="editor-launcher-actions">
+                <button
+                  className="button"
+                  disabled={!sourceFile}
+                  type="button"
+                  onClick={handleOpenMaskEditor}
+                >
+                  {maskFile ? 'Open mask editor again' : 'Open mask editor'}
+                </button>
+                <span className="muted">
+                  {maskFile
+                    ? 'Confirmed mask ready for submit.'
+                    : 'No confirmed mask yet. Open the editor and paint one region.'}
+                </span>
+              </div>
+            </section>
 
             <div className="preview-grid">
               <ImagePreviewCard
@@ -417,6 +478,42 @@ function HomePage() {
           </div>
         </section>
       </div>
+
+      <ModalShell
+        description="Paint or refine the editable region, then confirm the mask you want submitted with the job."
+        footer={
+          <>
+            <span className="muted">
+              {draftMaskFile
+                ? 'Confirm updates the generated mask preview and submit payload.'
+                : 'Paint at least one region before confirming a mask.'}
+            </span>
+            <div className="actions">
+              <button className="button button-secondary" type="button" onClick={handleCancelMaskEditor}>
+                Cancel
+              </button>
+              <button
+                className="button"
+                disabled={!draftMaskFile}
+                type="button"
+                onClick={handleConfirmMaskEditor}
+              >
+                Confirm mask
+              </button>
+            </div>
+          </>
+        }
+        open={isMaskEditorOpen}
+        title="Mask editor"
+        onClose={handleCancelMaskEditor}
+      >
+        <MaskPaintEditor
+          initialMaskUrl={maskPreviewUrl}
+          sourceFile={sourceFile}
+          sourceUrl={sourcePreviewUrl}
+          onMaskChange={handleDraftMaskChange}
+        />
+      </ModalShell>
     </div>
   )
 }

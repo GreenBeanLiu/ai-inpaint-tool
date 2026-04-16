@@ -10,6 +10,7 @@ import {
 interface MaskPaintEditorProps {
   sourceFile: File | null
   sourceUrl: string | null
+  initialMaskUrl?: string | null
   onMaskChange: (file: File | null) => void
 }
 
@@ -193,6 +194,7 @@ function canvasHasPaint(context: CanvasRenderingContext2D, canvas: HTMLCanvasEle
 export function MaskPaintEditor({
   sourceFile,
   sourceUrl,
+  initialMaskUrl = null,
   onMaskChange,
 }: Readonly<MaskPaintEditorProps>) {
   const sectionRef = useRef<HTMLElement | null>(null)
@@ -207,6 +209,7 @@ export function MaskPaintEditor({
   const panPointerOriginRef = useRef<Point | null>(null)
   const panOffsetOriginRef = useRef<Point>({ x: 0, y: 0 })
   const sourceVersionRef = useRef(0)
+  const baseMaskImageRef = useRef<HTMLImageElement | null>(null)
   const historyEntriesRef = useRef<HistoryEntry[]>([])
   const historyIndexRef = useRef(0)
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE)
@@ -245,8 +248,8 @@ export function MaskPaintEditor({
     setPanOffset({ x: 0, y: 0 })
     setIsPanning(false)
     setIsSpacePressed(false)
-    onMaskChange(null)
-  }, [sourceUrl, onMaskChange])
+    baseMaskImageRef.current = null
+  }, [sourceUrl, initialMaskUrl])
 
   useEffect(() => {
     const viewport = workspaceViewportRef.current
@@ -313,9 +316,54 @@ export function MaskPaintEditor({
     context.clearRect(0, 0, canvas.width, canvas.height)
   }, [dimensions])
 
+  useEffect(() => {
+    const version = sourceVersionRef.current
+
+    if (!sourceUrl || !initialMaskUrl) {
+      baseMaskImageRef.current = null
+      void applyHistoryState({ emitMaskChange: false })
+      return
+    }
+
+    const image = new Image()
+
+    image.onload = () => {
+      if (version !== sourceVersionRef.current) {
+        return
+      }
+
+      baseMaskImageRef.current = image
+      void applyHistoryState({ emitMaskChange: false })
+    }
+
+    image.onerror = () => {
+      if (version !== sourceVersionRef.current) {
+        return
+      }
+
+      baseMaskImageRef.current = null
+      void applyHistoryState({ emitMaskChange: false })
+    }
+
+    image.src = initialMaskUrl
+  }, [sourceUrl, initialMaskUrl, dimensions])
+
   function syncHistoryState() {
     setHistoryLength(historyEntriesRef.current.length)
     setHistoryIndex(historyIndexRef.current)
+  }
+
+  function renderBaseMask(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const baseMaskImage = baseMaskImageRef.current
+
+    if (!baseMaskImage) {
+      return
+    }
+
+    context.save()
+    context.globalCompositeOperation = 'source-over'
+    context.drawImage(baseMaskImage, 0, 0, canvas.width, canvas.height)
+    context.restore()
   }
 
   function redrawCanvasFromHistory() {
@@ -332,6 +380,7 @@ export function MaskPaintEditor({
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height)
+    renderBaseMask(context, canvas)
 
     for (const entry of historyEntriesRef.current.slice(0, historyIndexRef.current)) {
       if (entry.type === 'clear') {
@@ -343,11 +392,13 @@ export function MaskPaintEditor({
     }
   }
 
-  async function exportMaskFile(version: number) {
+  async function syncMaskOutput(version: number, emitMaskChange: boolean) {
     const canvas = canvasRef.current
 
     if (!canvas || !dimensions) {
-      onMaskChange(null)
+      if (emitMaskChange) {
+        onMaskChange(null)
+      }
       return
     }
 
@@ -357,7 +408,13 @@ export function MaskPaintEditor({
     setHasPaint(nextHasPaint)
 
     if (!nextHasPaint) {
-      onMaskChange(null)
+      if (emitMaskChange) {
+        onMaskChange(null)
+      }
+      return
+    }
+
+    if (!emitMaskChange) {
       return
     }
 
@@ -395,9 +452,10 @@ export function MaskPaintEditor({
     )
   }
 
-  async function applyHistoryState() {
+  async function applyHistoryState(options?: { emitMaskChange?: boolean }) {
+    const emitMaskChange = options?.emitMaskChange ?? true
     redrawCanvasFromHistory()
-    await exportMaskFile(sourceVersionRef.current)
+    await syncMaskOutput(sourceVersionRef.current, emitMaskChange)
   }
 
   function pushHistoryEntry(entry: HistoryEntry) {
@@ -617,7 +675,7 @@ export function MaskPaintEditor({
       brushSize: strokeBrushSizeRef.current,
       points,
     })
-    await exportMaskFile(sourceVersionRef.current)
+    await syncMaskOutput(sourceVersionRef.current, true)
   }
 
   async function handleClearMask() {
