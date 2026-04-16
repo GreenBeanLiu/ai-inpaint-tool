@@ -149,12 +149,16 @@ textarea {
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 999px;
   padding: 0.9rem 1.2rem;
   background: #1f4b7a;
   color: white;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .button-secondary {
@@ -601,6 +605,16 @@ textarea {
   display: grid;
   gap: 0.3rem;
   box-shadow: 0 14px 36px rgba(23, 28, 34, 0.08);
+}
+
+.comparison-empty-actions {
+  margin-top: 0.25rem;
+}
+
+.comparison-asset-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .image-preview-empty {

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+import type { ImageCardAction } from '@/components/image-preview-card'
+
 type ComparisonViewMode = 'source' | 'split' | 'result'
 
 interface ImageComparisonCardProps {
@@ -13,6 +15,9 @@ interface ImageComparisonCardProps {
   summary?: string | null
   emptyTitle?: string
   emptyLabel?: string
+  sourceActions?: ImageCardAction[]
+  resultActions?: ImageCardAction[]
+  emptyActions?: ImageCardAction[]
 }
 
 export function ImageComparisonCard({
@@ -26,6 +31,9 @@ export function ImageComparisonCard({
   summary,
   emptyTitle = 'Comparison preview pending',
   emptyLabel = 'The source image is ready. This area updates when a result image becomes available.',
+  sourceActions = [],
+  resultActions = [],
+  emptyActions = [],
 }: Readonly<ImageComparisonCardProps>) {
   const [reveal, setReveal] = useState(50)
   const [viewMode, setViewMode] = useState<ComparisonViewMode>('split')
@@ -41,6 +49,8 @@ export function ImageComparisonCard({
 
   const hasSourceImage = Boolean(sourceSrc) && !sourceError
   const hasResultImage = Boolean(resultSrc) && !resultError
+  const hasSourceAsset = Boolean(sourceSrc || sourceHref)
+  const hasResultAsset = Boolean(resultSrc || resultHref)
   const canCompare = hasSourceImage && hasResultImage
   const resolvedViewMode: ComparisonViewMode = canCompare
     ? viewMode
@@ -48,6 +58,22 @@ export function ImageComparisonCard({
       ? 'result'
       : 'source'
   const showSlider = canCompare && resolvedViewMode === 'split'
+  const resolvedEmptyState = resultError
+    ? {
+        title: 'Result preview unavailable',
+        label:
+          'The result asset exists, but inline rendering failed. Open or download the file directly to inspect it.',
+      }
+    : sourceError && !hasSourceImage
+      ? {
+          title: 'Source preview unavailable',
+          label:
+            'The source asset could not be rendered inline. Use the source actions below to inspect the original file directly.',
+        }
+      : {
+          title: emptyTitle,
+          label: emptyLabel,
+        }
 
   return (
     <article className="comparison-card">
@@ -86,7 +112,13 @@ export function ImageComparisonCard({
             Result
           </button>
         </div>
-        {!canCompare ? <span className="muted">Split view unlocks when both images load.</span> : null}
+        {!canCompare ? (
+          <span className="muted">
+            {hasResultAsset
+              ? 'Split view unlocks when both previews load.'
+              : 'Result actions unlock when the worker uploads the edited image.'}
+          </span>
+        ) : null}
       </div>
 
       <div className="comparison-frame">
@@ -132,8 +164,24 @@ export function ImageComparisonCard({
         ) : null}
         {!canCompare ? (
           <div className="comparison-empty-state">
-            <strong>{emptyTitle}</strong>
-            <span className="muted">{emptyLabel}</span>
+            <strong>{resolvedEmptyState.title}</strong>
+            <span className="muted">{resolvedEmptyState.label}</span>
+            {emptyActions.length > 0 ? (
+              <div className="actions comparison-empty-actions">
+                {emptyActions.map((action) => (
+                  <a
+                    className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
+                    download={action.download}
+                    href={action.href}
+                    key={`${action.label}-${action.href}`}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {action.label}
+                  </a>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -152,17 +200,55 @@ export function ImageComparisonCard({
         </label>
       ) : null}
 
-      <div className="comparison-links">
-        {sourceHref ? (
-          <a href={sourceHref} rel="noreferrer" target="_blank">
-            Open source
-          </a>
-        ) : null}
-        {resultHref ? (
-          <a href={resultHref} rel="noreferrer" target="_blank">
-            Open result
-          </a>
-        ) : null}
+      <div className="comparison-asset-grid">
+        <div className="job-card stack">
+          <strong>Source asset</strong>
+          <span className="muted">
+            {hasSourceAsset
+              ? 'Open the original upload or save a local copy.'
+              : 'No source asset actions are available.'}
+          </span>
+          {sourceActions.length > 0 ? (
+            <div className="actions">
+              {sourceActions.map((action) => (
+                <a
+                  className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
+                  download={action.download}
+                  href={action.href}
+                  key={`${action.label}-${action.href}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {action.label}
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="job-card stack">
+          <strong>Result asset</strong>
+          <span className="muted">
+            {hasResultAsset
+              ? 'Open or download the returned edit without leaving the compare view.'
+              : 'The result asset is not available yet. Keep this page open or refresh when processing finishes.'}
+          </span>
+          {resultActions.length > 0 ? (
+            <div className="actions">
+              {resultActions.map((action) => (
+                <a
+                  className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
+                  download={action.download}
+                  href={action.href}
+                  key={`${action.label}-${action.href}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {action.label}
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
     </article>
   )

@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
 
+export interface ImageCardAction {
+  href: string
+  label: string
+  download?: string | true
+  tone?: 'primary' | 'secondary'
+}
+
 interface ImagePreviewCardProps {
   title: string
   src?: string | null
@@ -7,6 +14,7 @@ interface ImagePreviewCardProps {
   href?: string | null
   summary?: string | null
   emptyLabel?: string
+  actions?: ImageCardAction[]
 }
 
 export function ImagePreviewCard({
@@ -16,6 +24,7 @@ export function ImagePreviewCard({
   href,
   summary,
   emptyLabel = 'No image available yet.',
+  actions = [],
 }: Readonly<ImagePreviewCardProps>) {
   const [hasError, setHasError] = useState(false)
 
@@ -24,6 +33,12 @@ export function ImagePreviewCard({
   }, [src])
 
   const showImage = Boolean(src) && !hasError
+  const resolvedActions =
+    actions.length > 0
+      ? actions
+      : href
+        ? [{ href, label: 'Open full image', tone: 'secondary' as const }]
+        : []
 
   return (
     <article className="image-preview-card">
@@ -46,10 +61,21 @@ export function ImagePreviewCard({
           </div>
         )}
       </div>
-      {href ? (
-        <a href={href} rel="noreferrer" target="_blank">
-          Open full image
-        </a>
+      {resolvedActions.length > 0 ? (
+        <div className="actions">
+          {resolvedActions.map((action) => (
+            <a
+              className={`button${action.tone === 'secondary' ? ' button-secondary' : ''}`}
+              download={action.download}
+              href={action.href}
+              key={`${action.label}-${action.href}`}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {action.label}
+            </a>
+          ))}
+        </div>
       ) : null}
     </article>
   )

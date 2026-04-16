@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 
 import { ImageComparisonCard } from '@/components/image-comparison-card'
-import { ImagePreviewCard } from '@/components/image-preview-card'
+import { ImagePreviewCard, type ImageCardAction } from '@/components/image-preview-card'
 import type { ApiErrorResponse, EditJobDetail, EditJobStatus } from '@/lib/types'
 
 export const Route = createFileRoute('/editor/$jobId')({
@@ -57,6 +57,75 @@ function formatFileSize(bytes: number | null) {
 
 function formatImageSummary(parts: Array<string | null | undefined>) {
   return parts.filter((part): part is string => Boolean(part)).join(' • ')
+}
+
+function getFilenameExtensionFromMimeType(mimeType: string | null | undefined) {
+  switch (mimeType) {
+    case 'image/png':
+      return 'png'
+    case 'image/jpeg':
+      return 'jpg'
+    case 'image/webp':
+      return 'webp'
+    default:
+      return null
+  }
+}
+
+function getFilenameExtensionFromUrl(url: string | null | undefined) {
+  if (!url) {
+    return null
+  }
+
+  try {
+    const pathname = new URL(url).pathname
+    const match = pathname.match(/\.([a-z0-9]+)$/i)
+    return match?.[1]?.toLowerCase() ?? null
+  } catch {
+    return null
+  }
+}
+
+function getAssetDownloadName(
+  job: EditJobDetail,
+  kind: 'source' | 'mask' | 'result',
+  options?: {
+    mimeType?: string | null
+    url?: string | null
+  },
+) {
+  const extension =
+    getFilenameExtensionFromMimeType(options?.mimeType) ??
+    getFilenameExtensionFromUrl(options?.url) ??
+    'png'
+
+  return `${job.id}-${kind}.${extension}`
+}
+
+function getAssetActions(
+  href: string | null | undefined,
+  labels: {
+    open: string
+    download: string
+  },
+  downloadName?: string,
+): ImageCardAction[] {
+  if (!href) {
+    return []
+  }
+
+  return [
+    {
+      href,
+      label: labels.open,
+      tone: 'secondary',
+    },
+    {
+      href,
+      label: labels.download,
+      download: downloadName ?? true,
+    },
+  ]
 }
 
 function getStatusSummary(job: EditJobDetail) {
@@ -253,6 +322,38 @@ function EditorJobPage() {
   const statusSummary = getStatusSummary(job)
   const failureDiagnostics = getFailureDiagnostics(job)
   const comparisonEmptyState = getComparisonEmptyState(job)
+  const sourceActions = getAssetActions(
+    job.sourceImageUrl,
+    {
+      open: 'Open source',
+      download: 'Download source',
+    },
+    getAssetDownloadName(job, 'source', {
+      mimeType: job.sourceMimeType,
+      url: job.sourceImageUrl,
+    }),
+  )
+  const maskActions = getAssetActions(
+    job.maskImageUrl,
+    {
+      open: 'Open mask',
+      download: 'Download mask',
+    },
+    getAssetDownloadName(job, 'mask', {
+      url: job.maskImageUrl,
+    }),
+  )
+  const resultActions = getAssetActions(
+    job.resultImageUrl,
+    {
+      open: 'Open result',
+      download: 'Download result',
+    },
+    getAssetDownloadName(job, 'result', {
+      mimeType: job.resultMimeType,
+      url: job.resultImageUrl,
+    }),
+  )
 
   return (
     <div className="stack">
@@ -331,17 +432,21 @@ function EditorJobPage() {
           resultAlt={`Result comparison image for job ${job.id}`}
           resultHref={job.resultImageUrl}
           resultSrc={job.resultImageUrl}
+          resultActions={resultActions}
           sourceAlt={`Source comparison image for job ${job.id}`}
+          sourceActions={sourceActions}
           sourceHref={job.sourceImageUrl}
           sourceSrc={job.sourceImageUrl}
           summary={getComparisonSummary(job)}
           title="Source vs result"
+          emptyActions={sourceActions}
         />
       </section>
 
       <section className="panel detail-grid">
         <ImagePreviewCard
           alt={`Source image for job ${job.id}`}
+          actions={sourceActions}
           href={job.sourceImageUrl}
           src={job.sourceImageUrl}
           summary={formatImageSummary([
@@ -353,6 +458,7 @@ function EditorJobPage() {
         />
         <ImagePreviewCard
           alt={`Mask image for job ${job.id}`}
+          actions={maskActions}
           href={job.maskImageUrl}
           src={job.maskImageUrl}
           summary={formatImageSummary([
@@ -363,6 +469,7 @@ function EditorJobPage() {
         />
         <ImagePreviewCard
           alt={`Result image for job ${job.id}`}
+          actions={resultActions}
           emptyLabel={getResultEmptyLabel(job)}
           href={job.resultImageUrl}
           src={job.resultImageUrl}

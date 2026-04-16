@@ -61,6 +61,16 @@ function getMaskPreviewSummary(file: File | null) {
   return `${getSelectedFileSummary(file)} • Transparent areas are editable`
 }
 
+function stripExtension(filename: string) {
+  return filename.replace(/\.[^.]+$/, '')
+}
+
+function getMaskDownloadFilename(sourceFile: File | null) {
+  const baseName = sourceFile ? stripExtension(sourceFile.name) : 'mask'
+  const safeBaseName = baseName.trim() || 'mask'
+  return `${safeBaseName}-mask.png`
+}
+
 function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
@@ -285,6 +295,22 @@ function HomePage() {
             <div className="preview-grid">
               <ImagePreviewCard
                 alt="Selected source preview"
+                actions={
+                  sourcePreviewUrl && sourceFile
+                    ? [
+                        {
+                          href: sourcePreviewUrl,
+                          label: 'Open source',
+                          tone: 'secondary',
+                        },
+                        {
+                          href: sourcePreviewUrl,
+                          label: 'Download source',
+                          download: sourceFile.name,
+                        },
+                      ]
+                    : undefined
+                }
                 emptyLabel="Choose a source image to preview it before submission."
                 src={sourcePreviewUrl}
                 summary={getSelectedFileSummary(sourceFile)}
@@ -292,6 +318,22 @@ function HomePage() {
               />
               <ImagePreviewCard
                 alt="Generated mask preview"
+                actions={
+                  maskPreviewUrl
+                    ? [
+                        {
+                          href: maskPreviewUrl,
+                          label: 'Open mask',
+                          tone: 'secondary',
+                        },
+                        {
+                          href: maskPreviewUrl,
+                          label: 'Download mask',
+                          download: getMaskDownloadFilename(sourceFile),
+                        },
+                      ]
+                    : undefined
+                }
                 emptyLabel="Paint the editable region to generate a mask preview."
                 src={maskPreviewUrl}
                 summary={getMaskPreviewSummary(maskFile)}
