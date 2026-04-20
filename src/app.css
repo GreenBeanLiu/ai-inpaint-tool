@@ -521,10 +521,12 @@ input[type='range'] {
 .mask-editor-meta,
 .mask-editor-workspace-toolbar,
 .mask-editor-zoom-controls,
+.mask-editor-layer-controls,
 .mask-editor-toolbar,
 .mask-editor-presets,
 .brush-size-stepper,
 .segmented-controls,
+.mask-editor-minimap-header,
 .comparison-links,
 .comparison-toolbar,
 .recent-job-header {
@@ -870,6 +872,7 @@ input[type='range'] {
   display: grid;
   place-items: center;
   position: relative;
+  padding: 0.35rem;
 }
 
 .mask-editor-stage {
@@ -885,6 +888,10 @@ input[type='range'] {
 
 .mask-editor-stage[data-panning='true'] {
   transition: none;
+}
+
+.mask-editor-stage[data-source-hidden='true'] {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .mask-editor-stage-badge {
@@ -922,9 +929,18 @@ input[type='range'] {
   height: 100%;
 }
 
+.mask-editor-image,
+.mask-editor-canvas {
+  transition: opacity 120ms ease-out;
+}
+
 .mask-editor-canvas {
   cursor: crosshair;
   touch-action: none;
+}
+
+.mask-editor-canvas[data-mask-hidden='true'] {
+  cursor: default;
 }
 
 .mask-editor-canvas[data-space-panning='true'],
@@ -946,12 +962,85 @@ input[type='range'] {
 
 .segmented-controls .button,
 .brush-size-stepper .button,
-.mask-editor-presets .button {
+.mask-editor-presets .button,
+.mask-editor-layer-controls .button {
   padding: 0.65rem 0.95rem;
 }
 
 .brush-size-stepper {
   justify-content: space-between;
+}
+
+.mask-editor-layer-controls {
+  margin-left: auto;
+}
+
+.mask-editor-workspace-hint {
+  flex-basis: 100%;
+}
+
+.mask-editor-minimap-shell {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.8rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(8, 15, 29, 0.9);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.34);
+}
+
+.mask-editor-minimap-header {
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.mask-editor-minimap-header span {
+  color: var(--muted);
+}
+
+.mask-editor-minimap {
+  display: inline-flex;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mask-editor-minimap[data-interactive='true'] {
+  cursor: crosshair;
+}
+
+.mask-editor-minimap[data-interactive='true'][data-dragging='true'] {
+  cursor: grabbing;
+}
+
+.mask-editor-minimap-stage {
+  position: relative;
+  overflow: hidden;
+}
+
+.mask-editor-minimap-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mask-editor-minimap-viewport {
+  position: absolute;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255, 180, 147, 0.96);
+  background: rgba(255, 143, 91, 0.12);
+  box-shadow:
+    0 0 0 999px rgba(4, 11, 22, 0.56),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  pointer-events: none;
 }
 
 .brush-size-chip {
@@ -1455,6 +1544,16 @@ input[type='range'] {
 
   .mask-editor-workspace-toolbar {
     align-items: flex-start;
+  }
+
+  .mask-editor-layer-controls {
+    margin-left: 0;
+  }
+
+  .mask-editor-minimap-shell {
+    right: 0.75rem;
+    bottom: 0.75rem;
+    padding: 0.7rem;
   }
 
   .mask-editor-workspace-viewport {
