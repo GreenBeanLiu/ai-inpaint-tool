@@ -37,6 +37,7 @@ interface StageViewportRect {
 }
 
 type BrushMode = 'paint' | 'erase'
+type WorkspaceViewMode = 'overlay' | 'source' | 'mask'
 
 interface StrokeHistoryEntry {
   type: 'stroke'
@@ -305,14 +306,15 @@ export function MaskPaintEditor({
   const [hasPaint, setHasPaint] = useState(false)
   const [historyLength, setHistoryLength] = useState(0)
   const [historyIndex, setHistoryIndex] = useState(0)
-  const [isSourceVisible, setIsSourceVisible] = useState(true)
-  const [isMaskVisible, setIsMaskVisible] = useState(true)
-  const [isOverlayEmphasized, setIsOverlayEmphasized] = useState(false)
+  const [workspaceViewMode, setWorkspaceViewMode] = useState<WorkspaceViewMode>('overlay')
   const [zoom, setZoom] = useState(MIN_ZOOM)
   const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 })
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const [isNavigatingMinimap, setIsNavigatingMinimap] = useState(false)
+  const isSourceVisible = workspaceViewMode !== 'mask'
+  const isMaskVisible = workspaceViewMode !== 'source'
+  const isOverlayEmphasized = workspaceViewMode === 'mask'
   const stageSize = getFittedStageSize(dimensions, workspaceSize)
   const minimapSize = getFittedStageSize(dimensions, {
     width: MINIMAP_MAX_SIZE,
@@ -354,9 +356,7 @@ export function MaskPaintEditor({
     setHasPaint(false)
     setHistoryLength(0)
     setHistoryIndex(0)
-    setIsSourceVisible(true)
-    setIsMaskVisible(true)
-    setIsOverlayEmphasized(false)
+    setWorkspaceViewMode('overlay')
     setZoom(MIN_ZOOM)
     setPanOffset({ x: 0, y: 0 })
     setIsPanning(false)
@@ -918,18 +918,26 @@ export function MaskPaintEditor({
     }
   }
 
-  const stageBadgeTitle = !isMaskVisible
-    ? 'Mask overlay hidden'
-    : brushMode === 'paint'
-      ? 'Paint editable pixels'
-      : 'Erasing mask edge'
-  const stageBadgeDescription = !isMaskVisible
-    ? 'Turn Mask back on to paint or erase the visible region.'
-    : !isSourceVisible
-      ? 'Source is hidden, so the mask silhouette reads against the workspace background.'
+  const stageBadgeTitle =
+    workspaceViewMode === 'source'
+      ? 'Source review mode'
       : brushMode === 'paint'
-        ? 'Red overlay becomes transparent in the exported PNG.'
-        : 'Erased overlay restores protected areas.'
+        ? workspaceViewMode === 'mask'
+          ? 'Mask silhouette in focus'
+          : 'Paint editable pixels'
+        : workspaceViewMode === 'mask'
+          ? 'Trim the mask edge'
+          : 'Erasing mask edge'
+  const stageBadgeDescription =
+    workspaceViewMode === 'source'
+      ? 'Mask strokes are hidden here. Switch to Overlay or Mask view to continue painting.'
+      : workspaceViewMode === 'mask'
+        ? brushMode === 'paint'
+          ? 'The source image is hidden so the editable silhouette reads clearly against the workspace.'
+          : 'Use erase mode here to tighten the edge without background detail competing for attention.'
+        : brushMode === 'paint'
+          ? 'Red overlay becomes transparent in the exported PNG.'
+          : 'Erased overlay restores protected areas.'
   const visibleCoverage =
     stageSize && visibleStageRect
       ? clampNumber(
@@ -943,6 +951,7 @@ export function MaskPaintEditor({
         )
       : 100
   const layerSummary = [
+    `View ${workspaceViewMode}`,
     `Source ${isSourceVisible ? 'on' : 'off'}`,
     `Mask ${isMaskVisible ? 'on' : 'off'}`,
     `Overlay ${Math.round(effectiveOverlayOpacity * 100)}%`,
@@ -963,7 +972,7 @@ export function MaskPaintEditor({
           <h3 style={{ margin: 0 }}>Mask editor</h3>
           <p className="muted" style={{ marginBottom: 0 }}>
             Paint what should change, then trim with erase mode. Undo/redo replays stroke
-            history, while the navigator and layer toggles keep zoomed edits oriented without
+            history, while the navigator and workspace views keep zoomed edits oriented without
             leaving the modal.
           </p>
         </div>
@@ -1029,31 +1038,30 @@ export function MaskPaintEditor({
                   Reset view
                 </button>
               </div>
-              <div className="mask-editor-layer-controls" role="group" aria-label="Layer controls">
+              <div className="mask-editor-layer-controls" role="group" aria-label="Workspace view">
                 <button
-                  aria-pressed={isSourceVisible}
+                  aria-pressed={workspaceViewMode === 'overlay'}
                   className="button button-secondary"
                   type="button"
-                  onClick={() => setIsSourceVisible((current) => !current)}
+                  onClick={() => setWorkspaceViewMode('overlay')}
+                >
+                  Overlay
+                </button>
+                <button
+                  aria-pressed={workspaceViewMode === 'source'}
+                  className="button button-secondary"
+                  type="button"
+                  onClick={() => setWorkspaceViewMode('source')}
                 >
                   Source
                 </button>
                 <button
-                  aria-pressed={isMaskVisible}
+                  aria-pressed={workspaceViewMode === 'mask'}
                   className="button button-secondary"
                   type="button"
-                  onClick={() => setIsMaskVisible((current) => !current)}
+                  onClick={() => setWorkspaceViewMode('mask')}
                 >
                   Mask
-                </button>
-                <button
-                  aria-pressed={isOverlayEmphasized}
-                  className="button button-secondary"
-                  disabled={!isMaskVisible}
-                  type="button"
-                  onClick={() => setIsOverlayEmphasized((current) => !current)}
-                >
-                  Focus mask
                 </button>
               </div>
               <span className="muted mask-editor-workspace-hint">

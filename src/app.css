@@ -811,6 +811,17 @@ input[type='range'] {
   min-height: min(900px, calc(100vh - 2rem));
 }
 
+.modal-header-copy,
+.editor-modal-shell,
+.editor-modal-flow,
+.editor-review-panel,
+.editor-review-header,
+.editor-review-handoff,
+.editor-review-handoff-list {
+  display: grid;
+  gap: 1rem;
+}
+
 .modal-header,
 .modal-footer {
   display: flex;
@@ -826,6 +837,25 @@ input[type='range'] {
   border-bottom: 1px solid var(--line);
 }
 
+.modal-header-copy {
+  gap: 0.55rem;
+}
+
+.modal-header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.modal-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: #ffb493;
+}
+
 .modal-footer {
   border-top: 1px solid var(--line);
 }
@@ -834,6 +864,55 @@ input[type='range'] {
   min-height: 0;
   overflow: auto;
   padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.editor-modal-shell {
+  gap: 1.25rem;
+}
+
+.editor-modal-flow {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.editor-modal-step,
+.editor-review-handoff-step {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(10, 21, 38, 0.76);
+}
+
+.editor-modal-step-active {
+  border-color: rgba(255, 143, 91, 0.28);
+  background: rgba(255, 143, 91, 0.1);
+}
+
+.editor-modal-step-ready {
+  border-color: rgba(55, 211, 155, 0.24);
+  background: rgba(55, 211, 155, 0.1);
+}
+
+.editor-review-panel,
+.editor-review-handoff {
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: rgba(10, 21, 38, 0.74);
+}
+
+.editor-review-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.editor-review-handoff {
+  gap: 1.1rem;
+}
+
+.editor-review-handoff-list {
+  gap: 0.75rem;
 }
 
 .mask-editor:focus-visible {
@@ -1508,6 +1587,7 @@ input[type='range'] {
   .app-header,
   .section-heading,
   .comparison-toolbar,
+  .editor-review-header,
   .mask-editor-header,
   .mask-editor-meta {
     align-items: flex-start;
@@ -1540,6 +1620,15 @@ input[type='range'] {
   .modal-body,
   .modal-footer {
     padding: 1rem;
+  }
+
+  .modal-header-actions {
+    justify-content: flex-start;
+  }
+
+  .editor-modal-flow,
+  .editor-review-header {
+    grid-template-columns: 1fr;
   }
 
   .mask-editor-workspace-toolbar {

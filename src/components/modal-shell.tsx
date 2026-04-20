@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom'
 
 interface ModalShellProps {
   open: boolean
+  eyebrow?: string
   title: string
   description?: string
+  headerActions?: ReactNode
   footer?: ReactNode
   onClose: () => void
   children: ReactNode
@@ -12,8 +14,10 @@ interface ModalShellProps {
 
 export function ModalShell({
   open,
+  eyebrow,
   title,
   description,
+  headerActions,
   footer,
   onClose,
   children,
@@ -64,24 +68,30 @@ export function ModalShell({
         role="dialog"
       >
         <div className="modal-header">
-          <div className="stack" style={{ gap: '0.45rem' }}>
-            <h2 id={titleId} style={{ margin: 0 }}>
-              {title}
-            </h2>
-            {description ? (
-              <p className="muted" id={descriptionId} style={{ margin: 0 }}>
-                {description}
-              </p>
-            ) : null}
+          <div className="modal-header-copy">
+            {eyebrow ? <div className="modal-eyebrow">{eyebrow}</div> : null}
+            <div className="stack" style={{ gap: '0.45rem' }}>
+              <h2 id={titleId} style={{ margin: 0 }}>
+                {title}
+              </h2>
+              {description ? (
+                <p className="muted" id={descriptionId} style={{ margin: 0 }}>
+                  {description}
+                </p>
+              ) : null}
+            </div>
           </div>
-          <button
-            aria-label="Close dialog"
-            className="button button-secondary"
-            type="button"
-            onClick={onClose}
-          >
-            Close
-          </button>
+          <div className="modal-header-actions">
+            {headerActions}
+            <button
+              aria-label="Close dialog"
+              className="button button-secondary"
+              type="button"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         <div className="modal-body">{children}</div>

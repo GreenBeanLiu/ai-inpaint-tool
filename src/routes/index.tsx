@@ -11,6 +11,9 @@ export const Route = createFileRoute('/')({
   component: HomePage,
 })
 
+type MaskModalStage = 'edit' | 'review'
+type MaskReviewView = 'source' | 'mask' | 'result'
+
 function useObjectUrl(file: File | null) {
   const [url, setUrl] = useState<string | null>(null)
 
@@ -102,6 +105,8 @@ function HomePage() {
   const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [maskFile, setMaskFile] = useState<File | null>(null)
   const [draftMaskFile, setDraftMaskFile] = useState<File | null>(null)
+  const [maskModalStage, setMaskModalStage] = useState<MaskModalStage>('edit')
+  const [maskReviewView, setMaskReviewView] = useState<MaskReviewView>('mask')
   const [jobs, setJobs] = useState<EditJobRecord[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isMaskEditorOpen, setIsMaskEditorOpen] = useState(false)
@@ -112,6 +117,7 @@ function HomePage() {
   const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
   const sourcePreviewUrl = useObjectUrl(sourceFile)
   const maskPreviewUrl = useObjectUrl(maskFile)
+  const draftMaskPreviewUrl = useObjectUrl(draftMaskFile)
 
   useEffect(() => {
     void refreshRuntimeCheck().catch((error) => {
@@ -177,6 +183,8 @@ function HomePage() {
     setSourceFile(file)
     setMaskFile(null)
     setDraftMaskFile(null)
+    setMaskModalStage('edit')
+    setMaskReviewView('mask')
     setIsMaskEditorOpen(false)
   }, [])
 
@@ -191,12 +199,16 @@ function HomePage() {
     }
 
     setDraftMaskFile(maskFile)
+    setMaskModalStage('edit')
+    setMaskReviewView(maskFile ? 'mask' : 'source')
     setMessage(null)
     setIsMaskEditorOpen(true)
   }
 
   function handleCancelMaskEditor() {
     setDraftMaskFile(maskFile)
+    setMaskModalStage('edit')
+    setMaskReviewView(maskFile ? 'mask' : 'source')
     setIsMaskEditorOpen(false)
   }
 
@@ -206,7 +218,18 @@ function HomePage() {
     }
 
     setMaskFile(draftMaskFile)
+    setMaskModalStage('edit')
+    setMaskReviewView('mask')
     setIsMaskEditorOpen(false)
+  }
+
+  function handleReviewDraftMask() {
+    if (!draftMaskFile) {
+      return
+    }
+
+    setMaskReviewView('mask')
+    setMaskModalStage('review')
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -264,6 +287,8 @@ function HomePage() {
       setSourceFile(null)
       setMaskFile(null)
       setDraftMaskFile(null)
+      setMaskModalStage('edit')
+      setMaskReviewView('mask')
       setIsMaskEditorOpen(false)
       event.currentTarget.reset()
       await navigate({
@@ -289,6 +314,124 @@ function HomePage() {
       null
   const activeJobs = jobs.filter((job) => job.status === 'queued' || job.status === 'processing')
   const latestJob = jobs[0] ?? null
+  const maskModalHeaderActions = (
+    <>
+      <span className={`status-pill ${maskModalStage === 'review' ? 'status-pill-processing' : 'status-pill-ready'}`}>
+        {maskModalStage === 'review' ? 'Review mode' : 'Editing mask'}
+      </span>
+      <span className={`inline-status ${draftMaskFile ? 'is-ready' : 'is-pending'}`}>
+        {draftMaskFile ? 'Draft mask ready' : 'Draft mask pending'}
+      </span>
+    </>
+  )
+  const workflowSteps = [
+    {
+      label: 'Source',
+      detail: sourceFile ? 'Loaded into editor' : 'Choose an image',
+      state: sourceFile ? ('ready' as const) : ('pending' as const),
+    },
+    {
+      label: 'Mask',
+      detail: draftMaskFile
+        ? maskModalStage === 'review'
+          ? 'Reviewing draft'
+          : 'Painting draft'
+        : 'Paint required',
+      state: draftMaskFile
+        ? maskModalStage === 'review'
+          ? ('active' as const)
+          : ('ready' as const)
+        : ('active' as const),
+    },
+    {
+      label: 'Result',
+      detail: 'Compare source, mask, and final output after submit',
+      state: maskModalStage === 'review' ? ('ready' as const) : ('pending' as const),
+    },
+  ]
+  const reviewCard =
+    maskReviewView === 'source' ? (
+      <ImagePreviewCard
+        actions={
+          sourcePreviewUrl && sourceFile
+            ? [
+                {
+                  href: sourcePreviewUrl,
+                  label: 'Open source',
+                  tone: 'secondary',
+                },
+                {
+                  href: sourcePreviewUrl,
+                  label: 'Download source',
+                  download: sourceFile.name,
+                },
+              ]
+            : undefined
+        }
+        alt="Source review preview"
+        badge="Step 1"
+        eyebrow="Source"
+        src={sourcePreviewUrl}
+        summary={getSelectedFileSummary(sourceFile)}
+        title="Source review"
+        variant="result"
+      />
+    ) : maskReviewView === 'mask' ? (
+      <ImagePreviewCard
+        actions={
+          draftMaskPreviewUrl
+            ? [
+                {
+                  href: draftMaskPreviewUrl,
+                  label: 'Open draft mask',
+                  tone: 'secondary',
+                },
+                {
+                  href: draftMaskPreviewUrl,
+                  label: 'Download draft mask',
+                  download: getMaskDownloadFilename(sourceFile),
+                },
+              ]
+            : undefined
+        }
+        alt="Draft mask review preview"
+        badge="Step 2"
+        eyebrow="Mask"
+        emptyLabel="Paint at least one editable region, then return here to review the draft mask."
+        src={draftMaskPreviewUrl}
+        summary={getMaskPreviewSummary(draftMaskFile)}
+        title="Draft mask review"
+        variant="result"
+      />
+    ) : (
+      <article className="editor-review-handoff">
+        <div className="image-preview-heading">
+          <div className="image-preview-meta">
+            <span className="image-preview-eyebrow">Result</span>
+            <span className="comparison-card-badge">After submit</span>
+          </div>
+          <strong>Result handoff</strong>
+          <span className="muted">
+            This modal stops at source and mask review. The delivered image is reviewed on the job
+            detail page, where source, split, and result views stay together.
+          </span>
+        </div>
+        <div className="editor-review-handoff-list">
+          <div className="editor-review-handoff-step">
+            <strong>1. Confirm the draft mask</strong>
+            <span className="muted">Lock the current mask into the submit payload.</span>
+          </div>
+          <div className="editor-review-handoff-step">
+            <strong>2. Create the queued job</strong>
+            <span className="muted">Source image, confirmed mask, and prompt upload together.</span>
+          </div>
+          <div className="editor-review-handoff-step">
+            <strong>3. Review the final render</strong>
+            <span className="muted">Use the job detail page for source, split, and result inspection.</span>
+          </div>
+        </div>
+      </article>
+    )
 
   return (
     <div className="home-page">
@@ -616,39 +759,126 @@ function HomePage() {
       </div>
 
       <ModalShell
-        description="Paint or refine the editable region, then confirm the mask you want submitted with the job."
+        description={
+          maskModalStage === 'review'
+            ? 'Check the source, draft mask, and the next result handoff before locking this mask into the submit payload.'
+            : 'Paint or refine the editable region, then move into review before confirming the mask you want submitted.'
+        }
+        eyebrow="Mask Workflow"
         footer={
           <>
-            <span className="muted">
-              {draftMaskFile
-                ? 'Confirm updates the generated mask preview and submit payload.'
-                : 'Paint at least one region before confirming a mask.'}
-            </span>
+            <div className="stack" style={{ gap: '0.3rem' }}>
+              <strong>{maskModalStage === 'review' ? 'Review the draft before confirming.' : 'Edit the draft mask first.'}</strong>
+              <span className="muted">
+                {maskModalStage === 'review'
+                  ? 'Confirm replaces the current mask preview and the file used for submit.'
+                  : draftMaskFile
+                    ? 'Move into review when you want to verify source and mask before locking the draft.'
+                    : 'Paint at least one region before advancing into review.'}
+              </span>
+            </div>
             <div className="actions">
               <button className="button button-secondary" type="button" onClick={handleCancelMaskEditor}>
                 Cancel
               </button>
-              <button
-                className="button"
-                disabled={!draftMaskFile}
-                type="button"
-                onClick={handleConfirmMaskEditor}
-              >
-                Confirm mask
-              </button>
+              {maskModalStage === 'review' ? (
+                <>
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => setMaskModalStage('edit')}
+                  >
+                    Back to edit
+                  </button>
+                  <button
+                    className="button"
+                    disabled={!draftMaskFile}
+                    type="button"
+                    onClick={handleConfirmMaskEditor}
+                  >
+                    Confirm mask
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="button"
+                  disabled={!draftMaskFile}
+                  type="button"
+                  onClick={handleReviewDraftMask}
+                >
+                  Review source + mask
+                </button>
+              )}
             </div>
           </>
         }
+        headerActions={maskModalHeaderActions}
         open={isMaskEditorOpen}
-        title="Mask editor"
+        title={maskModalStage === 'review' ? 'Review draft mask' : 'Mask editor'}
         onClose={handleCancelMaskEditor}
       >
-        <MaskPaintEditor
-          initialMaskUrl={maskPreviewUrl}
-          sourceFile={sourceFile}
-          sourceUrl={sourcePreviewUrl}
-          onMaskChange={handleDraftMaskChange}
-        />
+        <div className="editor-modal-shell">
+          <div className="editor-modal-flow" aria-label="Mask workflow steps">
+            {workflowSteps.map((step) => (
+              <article
+                className={`editor-modal-step editor-modal-step-${step.state}`}
+                key={step.label}
+              >
+                <strong>{step.label}</strong>
+                <span className="muted">{step.detail}</span>
+              </article>
+            ))}
+          </div>
+
+          {maskModalStage === 'review' ? (
+            <section className="editor-review-panel">
+              <div className="editor-review-header">
+                <div>
+                  <h3 style={{ margin: 0 }}>Review before confirm</h3>
+                  <p className="muted" style={{ marginBottom: 0 }}>
+                    Toggle between source, mask, and the post-submit result handoff so the next
+                    step stays explicit before you lock the mask.
+                  </p>
+                </div>
+                <div className="segmented-controls" role="group" aria-label="Review view">
+                  <button
+                    aria-pressed={maskReviewView === 'source'}
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => setMaskReviewView('source')}
+                  >
+                    Source
+                  </button>
+                  <button
+                    aria-pressed={maskReviewView === 'mask'}
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => setMaskReviewView('mask')}
+                  >
+                    Mask
+                  </button>
+                  <button
+                    aria-pressed={maskReviewView === 'result'}
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => setMaskReviewView('result')}
+                  >
+                    Result
+                  </button>
+                </div>
+              </div>
+
+              {reviewCard}
+            </section>
+          ) : (
+            <MaskPaintEditor
+              initialMaskUrl={maskPreviewUrl}
+              sourceFile={sourceFile}
+              sourceUrl={sourcePreviewUrl}
+              onMaskChange={handleDraftMaskChange}
+            />
+          )}
+        </div>
       </ModalShell>
     </div>
   )
