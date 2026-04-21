@@ -65,6 +65,7 @@ const MIN_ZOOM = 1
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.25
 const MINIMAP_MAX_SIZE = 168
+const FIT_VIEW_PADDING = 28
 
 function clampNumber(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value))
@@ -102,14 +103,18 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: PointerEvent<HTMLCanva
 function getFittedStageSize(
   dimensions: ImageDimensions | null,
   workspaceSize: WorkspaceSize,
+  padding = 0,
 ): ImageDimensions | null {
   if (!dimensions || workspaceSize.width <= 0 || workspaceSize.height <= 0) {
     return null
   }
 
+  const availableWidth = Math.max(1, workspaceSize.width - padding * 2)
+  const availableHeight = Math.max(1, workspaceSize.height - padding * 2)
+
   const scale = Math.min(
-    workspaceSize.width / dimensions.width,
-    workspaceSize.height / dimensions.height,
+    availableWidth / dimensions.width,
+    availableHeight / dimensions.height,
   )
 
   return {
@@ -289,6 +294,7 @@ export function MaskPaintEditor({
   const activePanPointerIdRef = useRef<number | null>(null)
   const activeMinimapPointerIdRef = useRef<number | null>(null)
   const hasPaintRef = useRef(false)
+  const shouldAutoFitViewportRef = useRef(true)
   const strokePointsRef = useRef<Point[]>([])
   const strokeBrushModeRef = useRef<BrushMode>('paint')
   const strokeBrushSizeRef = useRef(DEFAULT_BRUSH_SIZE)
@@ -315,7 +321,7 @@ export function MaskPaintEditor({
   const isSourceVisible = workspaceViewMode !== 'mask'
   const isMaskVisible = workspaceViewMode !== 'source'
   const isOverlayEmphasized = workspaceViewMode === 'mask'
-  const stageSize = getFittedStageSize(dimensions, workspaceSize)
+  const stageSize = getFittedStageSize(dimensions, workspaceSize, FIT_VIEW_PADDING)
   const minimapSize = getFittedStageSize(dimensions, {
     width: MINIMAP_MAX_SIZE,
     height: MINIMAP_MAX_SIZE,
@@ -351,6 +357,7 @@ export function MaskPaintEditor({
     panPointerOriginRef.current = null
     historyEntriesRef.current = []
     historyIndexRef.current = 0
+    shouldAutoFitViewportRef.current = true
     setBrushMode('paint')
     setDimensions(null)
     setHasPaint(false)
@@ -408,6 +415,12 @@ export function MaskPaintEditor({
   }, [sourceUrl, dimensions])
 
   useEffect(() => {
+    if (shouldAutoFitViewportRef.current) {
+      setZoom(MIN_ZOOM)
+      setPanOffset({ x: 0, y: 0 })
+      return
+    }
+
     setPanOffset((current) => clampPanOffset(current, zoom, stageSize, workspaceSize))
   }, [zoom, stageSize, workspaceSize])
 
@@ -621,13 +634,17 @@ export function MaskPaintEditor({
     })
   }
 
+  function handleFitView() {
+    shouldAutoFitViewportRef.current = true
+    setZoom(MIN_ZOOM)
+    setPanOffset({ x: 0, y: 0 })
+  }
+
   function handleZoomChange(nextZoom: number) {
+    shouldAutoFitViewportRef.current = false
     const clampedZoom = clampZoom(nextZoom)
     setZoom(clampedZoom)
-
-    if (clampedZoom === MIN_ZOOM) {
-      setPanOffset({ x: 0, y: 0 })
-    }
+    setPanOffset((current) => clampPanOffset(current, clampedZoom, stageSize, workspaceSize))
   }
 
   function handleStartPan(event: PointerEvent<HTMLCanvasElement>) {
@@ -637,6 +654,7 @@ export function MaskPaintEditor({
       return
     }
 
+    shouldAutoFitViewportRef.current = false
     activePanPointerIdRef.current = event.pointerId
     panPointerOriginRef.current = {
       x: event.clientX,
@@ -813,6 +831,7 @@ export function MaskPaintEditor({
     }
 
     event.preventDefault()
+    shouldAutoFitViewportRef.current = false
     activeMinimapPointerIdRef.current = event.pointerId
     setIsNavigatingMinimap(true)
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -1029,12 +1048,9 @@ export function MaskPaintEditor({
                   className="button button-secondary"
                   disabled={zoom === MIN_ZOOM && panOffset.x === 0 && panOffset.y === 0}
                   type="button"
-                  onClick={() => {
-                    handleZoomChange(MIN_ZOOM)
-                    setPanOffset({ x: 0, y: 0 })
-                  }}
+                  onClick={handleFitView}
                 >
-                  Reset view
+                  Fit view
                 </button>
               </div>
               <div className="mask-editor-layer-controls" role="group" aria-label="Workspace view">
@@ -1064,7 +1080,7 @@ export function MaskPaintEditor({
                 </button>
               </div>
               <span className="muted mask-editor-workspace-hint">
-                Pan with middle-click or hold space and drag when zoomed in.
+                Zoom in for detail, then pan with middle-click or hold space and drag.
               </span>
             </div>
             <div className="mask-editor-workspace-viewport" ref={workspaceViewportRef}>
@@ -1105,7 +1121,7 @@ export function MaskPaintEditor({
                     />
                   </div>
 
-                  {minimapSize && visibleStageRect ? (
+                  {minimapSize && visibleStageRect && canNavigateMinimap ? (
                     <div className="mask-editor-minimap-shell">
                       <div className="mask-editor-minimap-header">
                         <strong>Navigator</strong>
@@ -1141,9 +1157,7 @@ export function MaskPaintEditor({
                         </div>
                       </div>
                       <span className="muted">
-                        {canNavigateMinimap
-                          ? 'Click or drag to reframe the zoomed view.'
-                          : 'Zoom in to move the viewport here.'}
+                        Click or drag to reframe the zoomed view.
                       </span>
                     </div>
                   ) : null}
