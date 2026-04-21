@@ -8,6 +8,8 @@ interface ModalShellProps {
   description?: string
   headerActions?: ReactNode
   footer?: ReactNode
+  className?: string
+  bodyClassName?: string
   onClose: () => void
   children: ReactNode
 }
@@ -19,6 +21,8 @@ export function ModalShell({
   description,
   headerActions,
   footer,
+  className,
+  bodyClassName,
   onClose,
   children,
 }: Readonly<ModalShellProps>) {
@@ -64,7 +68,7 @@ export function ModalShell({
         aria-describedby={description ? descriptionId : undefined}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="modal-shell modal-shell-large"
+        className={['modal-shell', 'modal-shell-large', className].filter(Boolean).join(' ')}
         role="dialog"
       >
         <div className="modal-header">
@@ -94,7 +98,7 @@ export function ModalShell({
           </div>
         </div>
 
-        <div className="modal-body">{children}</div>
+        <div className={['modal-body', bodyClassName].filter(Boolean).join(' ')}>{children}</div>
 
         {footer ? <div className="modal-footer">{footer}</div> : null}
       </div>

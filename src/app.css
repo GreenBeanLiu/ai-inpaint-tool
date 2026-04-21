@@ -811,13 +811,20 @@ input[type='range'] {
   min-height: min(900px, calc(100vh - 2rem));
 }
 
+.editor-modal-shell-frame {
+  width: min(1520px, calc(100vw - 2rem));
+}
+
 .modal-header-copy,
 .editor-modal-shell,
 .editor-modal-flow,
 .editor-review-panel,
 .editor-review-header,
 .editor-review-handoff,
-.editor-review-handoff-list {
+.editor-review-handoff-list,
+.editor-workspace-footer-copy,
+.editor-workspace-summary,
+.editor-workspace-checklist {
   display: grid;
   gap: 1rem;
 }
@@ -866,8 +873,58 @@ input[type='range'] {
   padding: 1.25rem 1.5rem 1.5rem;
 }
 
+.editor-modal-body {
+  overflow: hidden;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
 .editor-modal-shell {
   gap: 1.25rem;
+}
+
+.editor-workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+  gap: 1rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.editor-workspace-main,
+.editor-workspace-sidebar {
+  min-height: 0;
+}
+
+.editor-workspace-sidebar {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  overflow: auto;
+  padding-right: 0.1rem;
+}
+
+.editor-workspace-summary,
+.mask-editor-controls {
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: rgba(10, 21, 38, 0.76);
+}
+
+.editor-workspace-checklist {
+  gap: 0.6rem;
+}
+
+.editor-workspace-checklist span {
+  padding: 0.75rem 0.85rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.editor-workspace-footer-copy {
+  gap: 0.3rem;
+  max-width: 44rem;
 }
 
 .editor-modal-flow {
@@ -921,6 +978,12 @@ input[type='range'] {
   border-radius: 24px;
 }
 
+.mask-editor {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
 .mask-editor-header,
 .mask-editor-meta,
 .mask-editor-workspace-toolbar,
@@ -930,6 +993,8 @@ input[type='range'] {
 }
 
 .mask-editor-stage-frame {
+  min-height: 0;
+  display: grid;
   background:
     linear-gradient(45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
     linear-gradient(-45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
@@ -942,11 +1007,15 @@ input[type='range'] {
 .mask-editor-workspace {
   display: grid;
   gap: 0.85rem;
+  height: 100%;
+  min-height: 0;
   padding: 0.85rem;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .mask-editor-workspace-viewport {
-  min-height: clamp(280px, 62vh, 720px);
+  min-height: clamp(360px, 68vh, 820px);
+  height: 100%;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -1546,7 +1615,8 @@ input[type='range'] {
   .upload-grid,
   .job-hero-top,
   .job-info-grid,
-  .job-assets-layout {
+  .job-assets-layout,
+  .editor-workspace-shell {
     grid-template-columns: 1fr;
   }
 
@@ -1571,6 +1641,19 @@ input[type='range'] {
       "result"
       "source"
       "mask";
+  }
+
+  .editor-workspace-shell {
+    height: auto;
+  }
+
+  .editor-workspace-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .editor-workspace-summary {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1622,12 +1705,17 @@ input[type='range'] {
     padding: 1rem;
   }
 
+  .editor-modal-body {
+    overflow: auto;
+  }
+
   .modal-header-actions {
     justify-content: flex-start;
   }
 
   .editor-modal-flow,
-  .editor-review-header {
+  .editor-review-header,
+  .editor-workspace-sidebar {
     grid-template-columns: 1fr;
   }
 

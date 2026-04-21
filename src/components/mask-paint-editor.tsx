@@ -970,10 +970,9 @@ export function MaskPaintEditor({
       <div className="mask-editor-header">
         <div>
           <h3 style={{ margin: 0 }}>Mask editor</h3>
-          <p className="muted" style={{ marginBottom: 0 }}>
-            Paint what should change, then trim with erase mode. Undo/redo replays stroke
-            history, while the navigator and workspace views keep zoomed edits oriented without
-            leaving the modal.
+          <p className="muted" style={{ margin: '0.3rem 0 0' }}>
+            Paint what should change, trim with erase mode, and keep Overlay, Source, and Mask in
+            the same workspace while you zoom or pan.
           </p>
         </div>
         <div className="mask-editor-toolbar">
