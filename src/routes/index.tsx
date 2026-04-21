@@ -630,7 +630,7 @@ function HomePage() {
       <ModalShell
         bodyClassName="editor-modal-body"
         className="editor-modal-shell-frame"
-        description="Paint or refine the editable region in one workspace. The right rail keeps the source and live draft visible while Confirm replaces the mask used for submit."
+        description="Paint or refine the editable region in one workstation. The canvas stays dominant, the review dock keeps full-image context visible, and Confirm replaces the mask used for submit."
         eyebrow="Mask Workspace"
         footer={
           <>
@@ -664,82 +664,121 @@ function HomePage() {
       >
         <div className="editor-workspace-shell">
           <div className="editor-workspace-main">
-            <MaskPaintEditor
-              initialMaskUrl={maskPreviewUrl}
-              sourceFile={sourceFile}
-              sourceUrl={sourcePreviewUrl}
-              onMaskChange={handleDraftMaskChange}
-            />
+            <section className="editor-workspace-station">
+              <MaskPaintEditor
+                initialMaskUrl={maskPreviewUrl}
+                sourceFile={sourceFile}
+                sourceUrl={sourcePreviewUrl}
+                onMaskChange={handleDraftMaskChange}
+              />
+            </section>
+
+            <section className="editor-workspace-review-dock">
+              <div className="editor-workspace-review-header">
+                <div className="section-heading-copy">
+                  <div className="section-eyebrow">Review dock</div>
+                  <h3 className="subsection-title">Keep the whole composition visible while you paint</h3>
+                  <p className="muted" style={{ marginBottom: 0 }}>
+                    The editor stays full-width above while source and draft previews remain docked
+                    below for fast composition checks before you confirm the mask.
+                  </p>
+                </div>
+                <div className="editor-workspace-review-statuses">
+                  <span className="inline-status is-ready">Source in view</span>
+                  <span className={`inline-status ${draftMaskFile ? 'is-ready' : 'is-pending'}`}>
+                    {draftMaskFile ? 'Draft updates live' : 'Draft pending'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="editor-workspace-review-grid">
+                <ImagePreviewCard
+                  actions={
+                    sourcePreviewUrl && sourceFile
+                      ? [
+                          {
+                            href: sourcePreviewUrl,
+                            label: 'Open source',
+                            tone: 'secondary',
+                          },
+                          {
+                            href: sourcePreviewUrl,
+                            label: 'Download source',
+                            download: sourceFile.name,
+                          },
+                        ]
+                      : undefined
+                  }
+                  alt="Source workspace preview"
+                  badge="Source"
+                  emptyLabel="Choose a source image to begin editing."
+                  src={sourcePreviewUrl}
+                  summary={getSelectedFileSummary(sourceFile)}
+                  title="Source reference"
+                  variant="supporting"
+                />
+
+                <ImagePreviewCard
+                  actions={
+                    draftMaskPreviewUrl
+                      ? [
+                          {
+                            href: draftMaskPreviewUrl,
+                            label: 'Open draft mask',
+                            tone: 'secondary',
+                          },
+                          {
+                            href: draftMaskPreviewUrl,
+                            label: 'Download draft mask',
+                            download: getMaskDownloadFilename(sourceFile),
+                          },
+                        ]
+                      : undefined
+                  }
+                  alt="Draft mask workspace preview"
+                  badge="Draft"
+                  emptyLabel="Paint at least one editable region to generate the live draft preview."
+                  src={draftMaskPreviewUrl}
+                  summary={getMaskPreviewSummary(draftMaskFile)}
+                  title="Live draft mask"
+                  variant="supporting"
+                />
+              </div>
+            </section>
           </div>
 
           <aside className="editor-workspace-sidebar">
             <section className="editor-workspace-summary">
               <div className="section-heading-copy">
-                <div className="section-eyebrow">Workspace status</div>
-                <h3 className="subsection-title">Keep the full image in view while you paint</h3>
+                <div className="section-eyebrow">Workstation</div>
+                <h3 className="subsection-title">Canvas first, handoff on the rail</h3>
                 <p className="muted" style={{ marginBottom: 0 }}>
-                  Overlay, Source, and Mask views stay in the same editor. The previews here update
-                  live so you can confirm the overall composition without leaving the workspace.
+                  Overlay, Source, and Mask still share one editor. The side rail now stays focused
+                  on session status while review lives directly under the canvas.
                 </p>
               </div>
               <div className="editor-workspace-checklist muted">
                 <span>{sourceFile ? `Source loaded: ${sourceFile.name}` : 'Source image pending'}</span>
-                <span>{draftMaskFile ? 'Draft mask updates live in the rail.' : 'Draft preview appears after the first stroke.'}</span>
-                <span>Confirm replaces the mask preview used for submit.</span>
+                <span>Review stays docked below the editor instead of taking canvas width.</span>
+                <span>Confirm replaces the current mask preview used for submit.</span>
               </div>
             </section>
 
-            <ImagePreviewCard
-              actions={
-                sourcePreviewUrl && sourceFile
-                  ? [
-                      {
-                        href: sourcePreviewUrl,
-                        label: 'Open source',
-                        tone: 'secondary',
-                      },
-                      {
-                        href: sourcePreviewUrl,
-                        label: 'Download source',
-                        download: sourceFile.name,
-                      },
-                    ]
-                  : undefined
-              }
-              alt="Source workspace preview"
-              badge="Source"
-              emptyLabel="Choose a source image to begin editing."
-              src={sourcePreviewUrl}
-              summary={getSelectedFileSummary(sourceFile)}
-              title="Source reference"
-              variant="supporting"
-            />
-
-            <ImagePreviewCard
-              actions={
-                draftMaskPreviewUrl
-                  ? [
-                      {
-                        href: draftMaskPreviewUrl,
-                        label: 'Open draft mask',
-                        tone: 'secondary',
-                      },
-                      {
-                        href: draftMaskPreviewUrl,
-                        label: 'Download draft mask',
-                        download: getMaskDownloadFilename(sourceFile),
-                      },
-                    ]
-                  : undefined
-              }
-              alt="Draft mask workspace preview"
-              badge="Draft"
-              emptyLabel="Paint at least one editable region to generate the live draft preview."
-              src={draftMaskPreviewUrl}
-              summary={getMaskPreviewSummary(draftMaskFile)}
-              title="Live draft mask"
-              variant="supporting"
-            />
+            <section className="editor-workspace-summary">
+              <div className="section-heading-copy">
+                <div className="section-eyebrow">Handoff</div>
+                <h3 className="subsection-title">Confirm only when the dock looks right</h3>
+                <p className="muted" style={{ marginBottom: 0 }}>
+                  Use the dock for overall silhouette checks, then confirm to replace the saved mask
+                  that the submit flow will upload.
+                </p>
+              </div>
+              <div className="editor-workspace-checklist muted">
+                <span>{draftMaskFile ? 'Draft mask is live and ready for review.' : 'First stroke unlocks the live draft mask.'}</span>
+                <span>Cancel keeps the last confirmed mask unchanged.</span>
+                <span>Open or download either preview directly from the review dock.</span>
+              </div>
+            </section>
           </aside>
         </div>
       </ModalShell>
