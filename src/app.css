@@ -931,7 +931,7 @@ input[type='range'] {
 
 .canvas-editor-modal .modal-header,
 .canvas-editor-modal .modal-footer {
-  padding: 0.95rem 1rem;
+  padding: 0.85rem 0.95rem;
   background: rgba(7, 14, 27, 0.82);
   backdrop-filter: blur(18px);
 }
@@ -1102,13 +1102,24 @@ input[type='range'] {
   flex: 1 1 360px;
   align-items: stretch;
   padding: 0.75rem;
-  border-radius: 24px;
+  border-radius: 22px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(7, 16, 30, 0.66);
-  backdrop-filter: blur(16px);
+  background: rgba(7, 16, 30, 0.72);
+  backdrop-filter: blur(18px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 18px 44px rgba(0, 0, 0, 0.18);
+    0 20px 52px rgba(0, 0, 0, 0.22);
+  pointer-events: auto;
+}
+
+.mask-editor-toolgroup-primary {
+  flex: 1 1 700px;
+  max-width: min(100%, 760px);
+}
+
+.mask-editor-toolgroup-utility {
+  flex: 0 1 390px;
+  margin-left: auto;
 }
 
 .mask-editor-tool-summary,
@@ -1123,6 +1134,20 @@ input[type='range'] {
   padding: 0.1rem 0.25rem;
 }
 
+.mask-editor-topbar {
+  position: absolute;
+  inset: 1rem 1rem auto 1rem;
+  z-index: 3;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.mask-editor-primary-tools,
+.mask-editor-utility-tools {
+  align-items: stretch;
+}
+
 .mask-editor-size-control {
   display: grid;
   grid-template-columns: auto minmax(220px, 280px);
@@ -1134,6 +1159,12 @@ input[type='range'] {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.mask-editor-size-readout {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .mask-editor-range-control {
   gap: 0.65rem;
 }
@@ -1142,9 +1173,40 @@ input[type='range'] {
   width: 100%;
 }
 
+.mask-editor-brush-chip {
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  background: rgba(213, 72, 55, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(4, 10, 18, 0.38),
+    0 8px 20px rgba(0, 0, 0, 0.18);
+  flex: 0 0 auto;
+}
+
+.mask-editor-brush-chip[data-mode='erase'] {
+  background: rgba(255, 255, 255, 0.04);
+  border-style: dashed;
+}
+
 .mask-editor-range-control .button {
   min-width: 2.75rem;
   padding-inline: 0.8rem;
+}
+
+.mask-editor-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  min-height: 1.55rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(4, 10, 20, 0.32);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .mask-editor-control-label {
@@ -1182,8 +1244,8 @@ input[type='range'] {
   height: 100%;
   min-height: 0;
   padding: 0.9rem;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 0.9rem;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
 }
 
 .mask-editor-workspace-viewport {
@@ -1193,7 +1255,7 @@ input[type='range'] {
   display: grid;
   place-items: center;
   position: relative;
-  padding: 0.6rem;
+  padding: 0.9rem;
   border-radius: 24px;
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.05), transparent 56%),
@@ -1353,6 +1415,16 @@ input[type='range'] {
   pointer-events: none;
 }
 
+.mask-editor-stage-status > span:not(.status-pill) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .mask-editor-minimap-header {
   justify-content: space-between;
   gap: 0.6rem;
@@ -1422,6 +1494,10 @@ input[type='range'] {
 .mask-editor-footer .mask-editor-meta {
   justify-content: flex-start;
   gap: 0.75rem;
+}
+
+.canvas-editor-header-actions {
+  justify-content: flex-end;
 }
 
 .runtime-capability-grid {
@@ -1975,18 +2051,27 @@ input[type='range'] {
   }
 
   .mask-editor-topbar {
+    inset: 0.75rem 0.75rem auto 0.75rem;
     align-items: flex-start;
   }
 
   .mask-editor-toolbar-tray,
-  .mask-editor-toolgroup {
+  .mask-editor-toolgroup,
+  .mask-editor-toolgroup-primary,
+  .mask-editor-toolgroup-utility {
     width: 100%;
+    max-width: none;
   }
 
   .mask-editor-size-control {
     width: 100%;
     grid-template-columns: 1fr;
     border-radius: 20px;
+  }
+
+  .mask-editor-primary-tools,
+  .mask-editor-utility-tools {
+    width: 100%;
   }
 
   .mask-editor-range-control {
@@ -1999,13 +2084,13 @@ input[type='range'] {
 
   .mask-editor-minimap-shell {
     right: 0.75rem;
-    top: 0.75rem;
-    bottom: auto;
+    bottom: 0.75rem;
     padding: 0.7rem;
   }
 
   .mask-editor-workspace-viewport {
     min-height: 360px;
+    padding: 0.75rem;
   }
 
   .mask-editor-stage-status {

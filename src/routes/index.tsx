@@ -537,14 +537,13 @@ function HomePage() {
       <ModalShell
         bodyClassName="canvas-editor-modal-body"
         className="canvas-editor-modal"
-        description="Paint directly on the source image, then keep the existing mask or use this draft."
         headerActions={
-          <>
+          <div className="canvas-editor-header-actions">
             <span className={`status-pill ${draftMaskFile ? 'status-pill-ready' : ''}`}>
               {draftMaskFile ? 'Draft ready' : 'Mask required'}
             </span>
             <button className="button button-secondary" type="button" onClick={handleCancelMaskEditor}>
-              {maskFile ? 'Keep current mask' : 'Cancel'}
+              Cancel
             </button>
             <button
               className="button"
@@ -554,11 +553,11 @@ function HomePage() {
             >
               Use mask
             </button>
-          </>
+          </div>
         }
         open={isMaskEditorOpen}
         showCloseButton={false}
-        title="Paint mask"
+        title="Mask painter"
         onClose={handleCancelMaskEditor}
       >
         <MaskPaintEditor
