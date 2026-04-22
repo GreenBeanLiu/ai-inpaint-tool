@@ -37,7 +37,6 @@ interface StageViewportRect {
 }
 
 type BrushMode = 'paint' | 'erase'
-type WorkspaceViewMode = 'overlay' | 'source' | 'mask'
 
 interface StrokeHistoryEntry {
   type: 'stroke'
@@ -46,20 +45,14 @@ interface StrokeHistoryEntry {
   points: Point[]
 }
 
-interface ClearHistoryEntry {
-  type: 'clear'
-}
-
-type HistoryEntry = StrokeHistoryEntry | ClearHistoryEntry
+type HistoryEntry = StrokeHistoryEntry
 
 const DEFAULT_BRUSH_SIZE = 40
 const MIN_BRUSH_SIZE = 8
 const MAX_BRUSH_SIZE = 160
 const BRUSH_STEP = 4
-const DEFAULT_OVERLAY_OPACITY = 0.46
-const EMPHASIZED_OVERLAY_OPACITY = 0.76
+const MASK_OVERLAY_OPACITY = 0.52
 const PAINT_COLOR = '#d54837'
-const BRUSH_PRESETS = [16, 32, 64, 96]
 const MAX_HISTORY_ENTRIES = 80
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
@@ -95,8 +88,8 @@ function getCanvasPoint(canvas: HTMLCanvasElement, event: PointerEvent<HTMLCanva
   const scaleY = canvas.height / bounds.height
 
   return {
-    x: (event.clientX - bounds.left) * scaleX,
-    y: (event.clientY - bounds.top) * scaleY,
+    x: clampNumber((event.clientX - bounds.left) * scaleX, 0, canvas.width),
+    y: clampNumber((event.clientY - bounds.top) * scaleY, 0, canvas.height),
   }
 }
 
@@ -265,7 +258,6 @@ function renderStrokeEntry(context: CanvasRenderingContext2D, entry: StrokeHisto
       entry.brushMode,
     )
   }
-
 }
 
 function canvasHasPaint(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
@@ -306,36 +298,23 @@ export function MaskPaintEditor({
   const historyIndexRef = useRef(0)
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE)
   const [brushMode, setBrushMode] = useState<BrushMode>('paint')
-  const [overlayOpacity, setOverlayOpacity] = useState(DEFAULT_OVERLAY_OPACITY)
   const [dimensions, setDimensions] = useState<ImageDimensions | null>(null)
   const [workspaceSize, setWorkspaceSize] = useState<WorkspaceSize>({ width: 0, height: 0 })
   const [hasPaint, setHasPaint] = useState(false)
   const [historyLength, setHistoryLength] = useState(0)
   const [historyIndex, setHistoryIndex] = useState(0)
-  const [workspaceViewMode, setWorkspaceViewMode] = useState<WorkspaceViewMode>('overlay')
+  const [hoverPoint, setHoverPoint] = useState<Point | null>(null)
   const [zoom, setZoom] = useState(MIN_ZOOM)
   const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 })
   const [isSpacePressed, setIsSpacePressed] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const [isNavigatingMinimap, setIsNavigatingMinimap] = useState(false)
-  const isSourceVisible = workspaceViewMode !== 'mask'
-  const isMaskVisible = workspaceViewMode !== 'source'
-  const isOverlayEmphasized = workspaceViewMode === 'mask'
   const stageSize = getFittedStageSize(dimensions, workspaceSize, FIT_VIEW_PADDING)
   const minimapSize = getFittedStageSize(dimensions, {
     width: MINIMAP_MAX_SIZE,
     height: MINIMAP_MAX_SIZE,
   })
   const visibleStageRect = getVisibleStageRect(stageSize, workspaceSize, zoom, panOffset)
-  const effectiveOverlayOpacity =
-    isMaskVisible
-      ? Math.min(
-          0.85,
-          isOverlayEmphasized
-            ? Math.max(overlayOpacity, EMPHASIZED_OVERLAY_OPACITY)
-            : overlayOpacity,
-        )
-      : 0
   const canUndo = historyIndex > 0
   const canRedo = historyIndex < historyLength
   const canNavigateMinimap =
@@ -363,7 +342,7 @@ export function MaskPaintEditor({
     setHasPaint(false)
     setHistoryLength(0)
     setHistoryIndex(0)
-    setWorkspaceViewMode('overlay')
+    setHoverPoint(null)
     setZoom(MIN_ZOOM)
     setPanOffset({ x: 0, y: 0 })
     setIsPanning(false)
@@ -510,11 +489,6 @@ export function MaskPaintEditor({
     renderBaseMask(context, canvas)
 
     for (const entry of historyEntriesRef.current.slice(0, historyIndexRef.current)) {
-      if (entry.type === 'clear') {
-        context.clearRect(0, 0, canvas.width, canvas.height)
-        continue
-      }
-
       renderStrokeEntry(context, entry)
     }
   }
@@ -677,11 +651,8 @@ export function MaskPaintEditor({
 
     if (shouldStartPan) {
       event.preventDefault()
+      setHoverPoint(null)
       handleStartPan(event)
-      return
-    }
-
-    if (!isMaskVisible) {
       return
     }
 
@@ -698,6 +669,7 @@ export function MaskPaintEditor({
     event.preventDefault()
 
     const point = getCanvasPoint(canvas, event)
+    setHoverPoint(point)
     activeStrokePointerIdRef.current = event.pointerId
     strokePointsRef.current = [point]
     strokeBrushModeRef.current = brushMode
@@ -721,6 +693,7 @@ export function MaskPaintEditor({
       stageSize
     ) {
       event.preventDefault()
+      setHoverPoint(null)
 
       const deltaX = event.clientX - panPointerOriginRef.current.x
       const deltaY = event.clientY - panPointerOriginRef.current.y
@@ -740,6 +713,9 @@ export function MaskPaintEditor({
       return
     }
 
+    const point = getCanvasPoint(canvas, event)
+    setHoverPoint(point)
+
     if (
       activeStrokePointerIdRef.current !== event.pointerId ||
       strokePointsRef.current.length === 0
@@ -754,8 +730,6 @@ export function MaskPaintEditor({
     }
 
     event.preventDefault()
-
-    const point = getCanvasPoint(canvas, event)
     const previousPoint = strokePointsRef.current[strokePointsRef.current.length - 1]
 
     drawBrushStroke(
@@ -864,22 +838,6 @@ export function MaskPaintEditor({
     setIsNavigatingMinimap(false)
   }
 
-  async function handleClearMask() {
-    const canvas = canvasRef.current
-
-    if (!canvas || !hasPaintRef.current) {
-      return
-    }
-
-    activeStrokePointerIdRef.current = null
-    activePanPointerIdRef.current = null
-    strokePointsRef.current = []
-    panPointerOriginRef.current = null
-    pushHistoryEntry({ type: 'clear' })
-    setIsPanning(false)
-    await applyHistoryState()
-  }
-
   function handleAdjustBrushSize(delta: number) {
     setBrushSize((current) => clampBrushSize(current + delta))
   }
@@ -937,26 +895,6 @@ export function MaskPaintEditor({
     }
   }
 
-  const stageBadgeTitle =
-    workspaceViewMode === 'source'
-      ? 'Source review mode'
-      : brushMode === 'paint'
-        ? workspaceViewMode === 'mask'
-          ? 'Mask silhouette in focus'
-          : 'Paint editable pixels'
-        : workspaceViewMode === 'mask'
-          ? 'Trim the mask edge'
-          : 'Erasing mask edge'
-  const stageBadgeDescription =
-    workspaceViewMode === 'source'
-      ? 'Mask strokes are hidden here. Switch to Overlay or Mask view to continue painting.'
-      : workspaceViewMode === 'mask'
-        ? brushMode === 'paint'
-          ? 'The source image is hidden so the editable silhouette reads clearly against the workspace.'
-          : 'Use erase mode here to tighten the edge without background detail competing for attention.'
-        : brushMode === 'paint'
-          ? 'Red overlay becomes transparent in the exported PNG.'
-          : 'Erased overlay restores protected areas.'
   const visibleCoverage =
     stageSize && visibleStageRect
       ? clampNumber(
@@ -969,32 +907,61 @@ export function MaskPaintEditor({
           100,
         )
       : 100
-  const layerSummary = [
-    `View ${workspaceViewMode}`,
-    `Source ${isSourceVisible ? 'on' : 'off'}`,
-    `Mask ${isMaskVisible ? 'on' : 'off'}`,
-    `Overlay ${Math.round(effectiveOverlayOpacity * 100)}%`,
-  ].join(' • ')
+  const brushPreviewSize =
+    stageSize && dimensions ? Math.max(14, (brushSize / dimensions.width) * stageSize.width) : 0
+  const showBrushPreview =
+    Boolean(stageSize && dimensions && hoverPoint && !isPanning && !isSpacePressed)
 
   return (
     <section
       className="mask-editor"
       ref={sectionRef}
       tabIndex={0}
-      onBlur={() => setIsSpacePressed(false)}
+      onBlur={() => {
+        setHoverPoint(null)
+        setIsSpacePressed(false)
+      }}
       onKeyDown={handleEditorKeyDown}
       onKeyUp={handleEditorKeyUp}
       onPointerDownCapture={() => sectionRef.current?.focus()}
     >
-      <div className="mask-editor-header">
-        <div>
-          <h3 style={{ margin: 0 }}>Mask editor</h3>
-          <p className="muted" style={{ margin: '0.3rem 0 0' }}>
-            Paint what should change, trim with erase mode, and keep Overlay, Source, and Mask in
-            the same workspace while you zoom or pan.
-          </p>
+      <div className="mask-editor-topbar">
+        <div className="mask-editor-primary-tools">
+          <div className="segmented-controls" role="group" aria-label="Mask tool">
+            <button
+              aria-pressed={brushMode === 'paint'}
+              className="button button-secondary"
+              type="button"
+              onClick={() => setBrushMode('paint')}
+            >
+              Brush
+            </button>
+            <button
+              aria-pressed={brushMode === 'erase'}
+              className="button button-secondary"
+              type="button"
+              onClick={() => setBrushMode('erase')}
+            >
+              Erase
+            </button>
+          </div>
+
+          <label className="mask-editor-size-control">
+            <span className="mask-editor-control-label">Size</span>
+            <input
+              aria-label="Brush size"
+              max={MAX_BRUSH_SIZE}
+              min={MIN_BRUSH_SIZE}
+              step={BRUSH_STEP}
+              type="range"
+              value={brushSize}
+              onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))}
+            />
+            <span className="brush-size-chip">{brushSize}px</span>
+          </label>
         </div>
-        <div className="mask-editor-toolbar">
+
+        <div className="mask-editor-utility-tools">
           <button
             className="button button-secondary"
             disabled={!canUndo}
@@ -1013,11 +980,28 @@ export function MaskPaintEditor({
           </button>
           <button
             className="button button-secondary"
-            disabled={!hasPaint}
+            disabled={zoom <= MIN_ZOOM}
             type="button"
-            onClick={() => void handleClearMask()}
+            onClick={() => handleZoomChange(zoom - ZOOM_STEP)}
           >
-            Clear mask
+            -
+          </button>
+          <span className="brush-size-chip">{Math.round(zoom * 100)}%</span>
+          <button
+            className="button button-secondary"
+            disabled={zoom >= MAX_ZOOM}
+            type="button"
+            onClick={() => handleZoomChange(zoom + ZOOM_STEP)}
+          >
+            +
+          </button>
+          <button
+            className="button button-secondary"
+            disabled={zoom === MIN_ZOOM && panOffset.x === 0 && panOffset.y === 0}
+            type="button"
+            onClick={handleFitView}
+          >
+            Fit view
           </button>
         </div>
       </div>
@@ -1025,106 +1009,58 @@ export function MaskPaintEditor({
       <div className="mask-editor-stage-frame">
         {sourceUrl && dimensions ? (
           <div className="mask-editor-workspace">
-            <div className="mask-editor-workspace-toolbar">
-              <div className="mask-editor-zoom-controls">
-                <button
-                  className="button button-secondary"
-                  disabled={zoom <= MIN_ZOOM}
-                  type="button"
-                  onClick={() => handleZoomChange(zoom - ZOOM_STEP)}
-                >
-                  Zoom out
-                </button>
-                <span className="brush-size-chip">{Math.round(zoom * 100)}%</span>
-                <button
-                  className="button button-secondary"
-                  disabled={zoom >= MAX_ZOOM}
-                  type="button"
-                  onClick={() => handleZoomChange(zoom + ZOOM_STEP)}
-                >
-                  Zoom in
-                </button>
-                <button
-                  className="button button-secondary"
-                  disabled={zoom === MIN_ZOOM && panOffset.x === 0 && panOffset.y === 0}
-                  type="button"
-                  onClick={handleFitView}
-                >
-                  Fit view
-                </button>
-              </div>
-              <div className="mask-editor-layer-controls" role="group" aria-label="Workspace view">
-                <button
-                  aria-pressed={workspaceViewMode === 'overlay'}
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setWorkspaceViewMode('overlay')}
-                >
-                  Overlay
-                </button>
-                <button
-                  aria-pressed={workspaceViewMode === 'source'}
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setWorkspaceViewMode('source')}
-                >
-                  Source
-                </button>
-                <button
-                  aria-pressed={workspaceViewMode === 'mask'}
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => setWorkspaceViewMode('mask')}
-                >
-                  Mask
-                </button>
-              </div>
-              <span className="muted mask-editor-workspace-hint">
-                Zoom in for detail, then pan with middle-click or hold space and drag.
-              </span>
-            </div>
             <div className="mask-editor-workspace-viewport" ref={workspaceViewportRef}>
               {stageSize ? (
                 <>
                   <div
                     className="mask-editor-stage"
-                    data-mask-hidden={!isMaskVisible ? 'true' : undefined}
                     data-panning={isPanning ? 'true' : undefined}
-                    data-source-hidden={!isSourceVisible ? 'true' : undefined}
                     style={{
                       height: `${stageSize.height}px`,
                       transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
                       width: `${stageSize.width}px`,
                     }}
                   >
-                    <div className="mask-editor-stage-badge">
-                      <strong>{stageBadgeTitle}</strong>
-                      <span>{stageBadgeDescription}</span>
-                    </div>
                     <img
                       alt="Source image for mask painting"
                       className="mask-editor-image"
                       src={sourceUrl}
-                      style={{ opacity: isSourceVisible ? 1 : 0 }}
                     />
                     <canvas
                       className="mask-editor-canvas"
-                      data-mask-hidden={!isMaskVisible ? 'true' : undefined}
                       data-space-panning={isSpacePressed ? 'true' : undefined}
                       ref={canvasRef}
-                      style={{ opacity: effectiveOverlayOpacity }}
+                      style={{ opacity: MASK_OVERLAY_OPACITY }}
                       onContextMenu={(event) => event.preventDefault()}
                       onPointerCancel={(event) => void finishInteraction(event)}
                       onPointerDown={handlePointerDown}
+                      onPointerLeave={() => {
+                        if (activeStrokePointerIdRef.current == null) {
+                          setHoverPoint(null)
+                        }
+                      }}
                       onPointerMove={handlePointerMove}
                       onPointerUp={(event) => void finishInteraction(event)}
                     />
+                    {showBrushPreview && hoverPoint && dimensions ? (
+                      <div
+                        aria-hidden="true"
+                        className="mask-editor-brush-preview"
+                        data-mode={brushMode}
+                        style={{
+                          height: `${brushPreviewSize}px`,
+                          left: `${(hoverPoint.x / dimensions.width) * stageSize.width}px`,
+                          top: `${(hoverPoint.y / dimensions.height) * stageSize.height}px`,
+                          width: `${brushPreviewSize}px`,
+                        }}
+                      />
+                    ) : null}
                   </div>
 
                   {minimapSize && visibleStageRect && canNavigateMinimap ? (
                     <div className="mask-editor-minimap-shell">
                       <div className="mask-editor-minimap-header">
-                        <strong>Navigator</strong>
+                        <strong>Map</strong>
                         <span>{visibleCoverage}% view</span>
                       </div>
                       <div
@@ -1156,9 +1092,6 @@ export function MaskPaintEditor({
                           />
                         </div>
                       </div>
-                      <span className="muted">
-                        Click or drag to reframe the zoomed view.
-                      </span>
                     </div>
                   ) : null}
                 </>
@@ -1183,92 +1116,13 @@ export function MaskPaintEditor({
         ) : null}
       </div>
 
-      <div className="mask-editor-controls">
-        <div className="mask-editor-toolbar">
-          <div className="segmented-controls" role="group" aria-label="Mask tool">
-            <button
-              aria-pressed={brushMode === 'paint'}
-              className="button button-secondary"
-              type="button"
-              onClick={() => setBrushMode('paint')}
-            >
-              Paint
-            </button>
-            <button
-              aria-pressed={brushMode === 'erase'}
-              className="button button-secondary"
-              type="button"
-              onClick={() => setBrushMode('erase')}
-            >
-              Erase
-            </button>
-          </div>
-
-          <div className="brush-size-stepper">
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={() => handleAdjustBrushSize(-BRUSH_STEP)}
-            >
-              Smaller
-            </button>
-            <span className="brush-size-chip">{brushSize}px</span>
-            <button
-              className="button button-secondary"
-              type="button"
-              onClick={() => handleAdjustBrushSize(BRUSH_STEP)}
-            >
-              Larger
-            </button>
-          </div>
-        </div>
-
-        <label className="field">
-          <span>Brush size</span>
-          <input
-            aria-label="Brush size"
-            max={MAX_BRUSH_SIZE}
-            min={MIN_BRUSH_SIZE}
-            step={BRUSH_STEP}
-            type="range"
-            value={brushSize}
-            onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))}
-          />
-        </label>
-        <div className="mask-editor-presets" role="group" aria-label="Brush presets">
-          {BRUSH_PRESETS.map((preset) => (
-            <button
-              aria-pressed={brushSize === preset}
-              className="button button-secondary"
-              key={preset}
-              type="button"
-              onClick={() => setBrushSize(preset)}
-            >
-              {preset}px
-            </button>
-          ))}
-        </div>
-
-        <label className="field">
-          <span>Overlay opacity: {Math.round(overlayOpacity * 100)}%</span>
-          <input
-            aria-label="Mask overlay opacity"
-            max={0.85}
-            min={0.2}
-            step={0.05}
-            type="range"
-            value={overlayOpacity}
-            onChange={(event) => setOverlayOpacity(Number(event.target.value))}
-          />
-        </label>
-
-        <div className="mask-editor-meta muted">
+      <div className="mask-editor-footer muted">
+        <div className="mask-editor-meta">
           <span>
             {dimensions ? `${dimensions.width} × ${dimensions.height}` : 'Source dimensions pending'}
           </span>
-          <span>{hasPaint ? 'Mask ready for submit as PNG.' : 'Paint at least one region.'}</span>
-          <span>{layerSummary}</span>
-          <span>Shortcuts: Cmd/Ctrl+Z undo, Shift+Cmd/Ctrl+Z redo, B paint, E erase, [ and ] resize.</span>
+          <span>{hasPaint ? 'Mask ready to confirm.' : 'Paint to create the mask.'}</span>
+          <span>Shortcuts: Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z, B, E, [, ], Space-drag.</span>
         </div>
       </div>
     </section>

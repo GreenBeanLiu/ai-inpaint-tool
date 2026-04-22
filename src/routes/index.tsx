@@ -88,14 +88,6 @@ function getRuntimeCreateTone(report: RuntimeCheckReport | null) {
   return report.overall.canCreateJob ? 'is-ready' : 'is-blocked'
 }
 
-function getLatestJobSummary(job: EditJobRecord | null) {
-  if (!job) {
-    return 'No jobs created yet'
-  }
-
-  return `${job.status} • ${new Date(job.createdAt).toLocaleString()}`
-}
-
 function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
@@ -112,7 +104,6 @@ function HomePage() {
   const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
   const sourcePreviewUrl = useObjectUrl(sourceFile)
   const maskPreviewUrl = useObjectUrl(maskFile)
-  const draftMaskPreviewUrl = useObjectUrl(draftMaskFile)
 
   useEffect(() => {
     void refreshRuntimeCheck().catch((error) => {
@@ -290,356 +281,270 @@ function HomePage() {
       runtimeReport?.overall.blockers[0] ??
       null
   const activeJobs = jobs.filter((job) => job.status === 'queued' || job.status === 'processing')
-  const latestJob = jobs[0] ?? null
-  const maskModalHeaderActions = (
-    <>
-      <span className="status-pill status-pill-ready">Workspace</span>
-      <span className={`inline-status ${draftMaskFile ? 'is-ready' : 'is-pending'}`}>
-        {draftMaskFile ? 'Draft mask ready' : 'Draft mask pending'}
-      </span>
-    </>
-  )
 
   return (
     <div className="home-page">
-      <section className="hero-banner">
-        <div className="hero-banner-copy">
-          <div className="hero-kicker">AI Inpaint Studio</div>
-          <h1 className="hero-title">Local masked image edits with a cleaner creator workflow.</h1>
-          <p className="hero-description muted">
-            Keep the same source upload, modal mask editor, prompt, submit flow, and recent job
-            tracking, but present it like a focused editing product instead of a runtime console.
-          </p>
-          <div className="hero-actions">
-            <a className="button" href="#create-edit-job">
-              Start a new edit
-            </a>
-            <span className={`hero-runtime-chip ${getRuntimeCreateTone(runtimeReport)}`}>
-              {getRuntimeCreateStatusLabel(runtimeReport)}
-            </span>
-          </div>
-          <div className="hero-stat-grid">
-            <article className="stat-card">
-              <span className="stat-label">Create jobs</span>
-              <strong className="stat-value">
-                {runtimeReport ? (runtimeReport.overall.canCreateJob ? 'Ready' : 'Blocked') : '...'}
-              </strong>
-              <span className="muted">Live runtime gate for submissions</span>
-            </article>
-            <article className="stat-card">
-              <span className="stat-label">Active jobs</span>
-              <strong className="stat-value">{activeJobs.length}</strong>
-              <span className="muted">Queued or processing right now</span>
-            </article>
-            <article className="stat-card">
-              <span className="stat-label">Latest activity</span>
-              <strong className="stat-value stat-value-compact">
-                {latestJob ? latestJob.id.slice(0, 8) : 'None'}
-              </strong>
-              <span className="muted">{getLatestJobSummary(latestJob)}</span>
-            </article>
-          </div>
-        </div>
-
-        <aside className="workflow-card">
-          <div className="section-eyebrow">Workflow</div>
-          <h2 className="section-title">Four steps, same pipeline</h2>
-          <div className="workflow-list">
-            <div className="workflow-step">
-              <span className="workflow-step-number">1</span>
-              <div>
-                <strong>Upload the source image</strong>
-                <p className="muted">PNG, JPEG, and WEBP uploads stay supported.</p>
-              </div>
-            </div>
-            <div className="workflow-step">
-              <span className="workflow-step-number">2</span>
-              <div>
-                <strong>Paint the editable mask</strong>
-                <p className="muted">The modal editor still exports a PNG mask for submit.</p>
-              </div>
-            </div>
-            <div className="workflow-step">
-              <span className="workflow-step-number">3</span>
-              <div>
-                <strong>Describe the edit</strong>
-                <p className="muted">Prompts remain optional for quick cleanup passes.</p>
-              </div>
-            </div>
-            <div className="workflow-step">
-              <span className="workflow-step-number">4</span>
-              <div>
-                <strong>Submit and monitor jobs</strong>
-                <p className="muted">Recent runs and the job detail view stay one click away.</p>
-              </div>
-            </div>
-          </div>
-          <div className="alert">
-            Uses the existing runtime and job pipeline. Runtime health stays explicit in the panel
-            below, but the intake surface is optimized for creative flow first.
-          </div>
-        </aside>
-      </section>
-
-      <div className="home-layout">
-        <section className="panel intake-panel" id="create-edit-job">
+      <section className="panel intake-panel simplified-intake-panel" id="create-edit-job">
+        <div className="simple-home-heading">
           <div className="section-heading">
             <div className="section-heading-copy">
               <div className="section-eyebrow">New edit</div>
-              <h2 className="section-title">Create a masked edit job</h2>
+              <h1 className="section-title">Upload, paint, submit.</h1>
               <p className="section-description muted">
-                Upload a source, refine the editable region in the modal mask editor, add optional
-                guidance, and jump straight into the job detail page after submit.
+                Choose a source image and the painter opens immediately. Confirm the mask, add an
+                optional prompt, then submit through the same job pipeline.
               </p>
             </div>
-            <div className={`hero-runtime-chip ${getRuntimeCreateTone(runtimeReport)}`}>
+            <span className={`hero-runtime-chip ${getRuntimeCreateTone(runtimeReport)}`}>
               {runtimeReport
-                ? (createJobBlockedReason ?? 'Submission path is clear')
+                ? createJobBlockedReason ?? getRuntimeCreateStatusLabel(runtimeReport)
                 : 'Checking runtime'}
-            </div>
+            </span>
           </div>
 
-          <form className="intake-form" onSubmit={handleSubmit}>
-            <div className="upload-grid">
-              <label className="upload-card field">
-                <div className="upload-card-header">
-                  <span className="step-badge">Step 1</span>
-                  <strong>Source image</strong>
-                </div>
-                <span className="muted">
-                  Upload one source frame to edit. Selecting a file opens the mask workspace
-                  immediately. Supported formats: PNG, JPEG, WEBP.
-                </span>
-                <input
-                  accept="image/png,image/jpeg,image/webp"
-                  name="image"
-                  onChange={(event) => handleSourceFileChange(event.target.files?.[0] ?? null)}
-                  required
-                  type="file"
-                />
-                <span className="upload-summary">
-                  {getSelectedFileSummary(sourceFile) ?? 'No image selected yet.'}
-                </span>
-              </label>
+          <div className="simple-home-stats">
+            <span className={`inline-status ${sourceFile ? 'is-ready' : 'is-pending'}`}>
+              {sourceFile ? `Source: ${sourceFile.name}` : 'Source image not selected'}
+            </span>
+            <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
+              {maskFile ? 'Mask confirmed' : 'Mask required'}
+            </span>
+            <span className="inline-status is-pending">{activeJobs.length} active jobs</span>
+          </div>
+        </div>
 
-              <section className="mask-launch-card">
-                <div className="upload-card-header">
-                  <span className="step-badge">Step 2</span>
-                  <strong>Mask editor</strong>
-                </div>
-                <p className="muted">
-                  The workspace opens as soon as a source is selected. Use this button to reopen
-                  it, while Cancel preserves the last confirmed mask and Confirm replaces the file
-                  used for submit.
-                </p>
-                <div className="actions">
-                  <button
-                    className="button"
-                    disabled={!sourceFile}
-                    type="button"
-                    onClick={handleOpenMaskEditor}
-                  >
-                    {maskFile ? 'Refine mask' : 'Open mask editor'}
-                  </button>
-                  <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
-                    {maskFile ? 'Mask confirmed' : 'Mask required before submit'}
-                  </span>
-                </div>
-                <span className="upload-summary">
-                  {getMaskPreviewSummary(maskFile) ??
-                    'No confirmed mask yet. Paint a region to unlock submission.'}
-                </span>
-              </section>
-            </div>
-
-            <section className="stack">
-              <div className="section-heading-copy">
-                <div className="section-eyebrow">Preview</div>
-                <h3 className="subsection-title">Check source and generated mask</h3>
-              </div>
-              <div className="preview-grid">
-                <ImagePreviewCard
-                  alt="Selected source preview"
-                  actions={
-                    sourcePreviewUrl && sourceFile
-                      ? [
-                          {
-                            href: sourcePreviewUrl,
-                            label: 'Open source',
-                            tone: 'secondary',
-                          },
-                          {
-                            href: sourcePreviewUrl,
-                            label: 'Download source',
-                            download: sourceFile.name,
-                          },
-                        ]
-                      : undefined
-                  }
-                  emptyLabel="Choose a source image to preview it before submission."
-                  src={sourcePreviewUrl}
-                  summary={getSelectedFileSummary(sourceFile)}
-                  title="Source preview"
-                />
-                <ImagePreviewCard
-                  alt="Generated mask preview"
-                  actions={
-                    maskPreviewUrl
-                      ? [
-                          {
-                            href: maskPreviewUrl,
-                            label: 'Open mask',
-                            tone: 'secondary',
-                          },
-                          {
-                            href: maskPreviewUrl,
-                            label: 'Download mask',
-                            download: getMaskDownloadFilename(sourceFile),
-                          },
-                        ]
-                      : undefined
-                  }
-                  emptyLabel="Paint the editable region to generate a mask preview."
-                  src={maskPreviewUrl}
-                  summary={getMaskPreviewSummary(maskFile)}
-                  title="Generated mask"
-                />
-              </div>
-            </section>
-
-            <label className="field prompt-field">
+        <form className="intake-form simplified-intake-form" onSubmit={handleSubmit}>
+          <div className="simple-intake-grid">
+            <label className="upload-card field">
               <div className="upload-card-header">
-                <span className="step-badge">Step 3</span>
-                <strong>Prompt</strong>
+                <span className="step-badge">Step 1</span>
+                <strong>Source image</strong>
               </div>
               <span className="muted">
-                Optional guidance for what should be filled, replaced, or extended.
+                PNG, JPEG, and WEBP are supported. Picking a file opens the painter immediately.
               </span>
-              <textarea
-                name="prompt"
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="Describe the new content, cleanup, or replacement you want."
+              <input
+                accept="image/png,image/jpeg,image/webp"
+                name="image"
+                onChange={(event) => handleSourceFileChange(event.target.files?.[0] ?? null)}
+                required
+                type="file"
               />
+              <span className="upload-summary">
+                {getSelectedFileSummary(sourceFile) ?? 'No image selected yet.'}
+              </span>
             </label>
 
-            <section className="submit-card">
+            <section className="mask-launch-card simplified-mask-card">
               <div className="upload-card-header">
-                <span className="step-badge">Step 4</span>
-                <strong>Submit the edit job</strong>
+                <span className="step-badge">Step 2</span>
+                <strong>Mask painter</strong>
               </div>
               <p className="muted">
-                Submitting uploads the source and mask, creates the queued job record, and opens
-                the job detail page so you can follow the lifecycle from there.
+                Reopen the painter any time. Cancel keeps the last confirmed mask. Confirm replaces
+                the mask file that will be uploaded.
               </p>
               <div className="actions">
                 <button
-                  className="button button-cta"
-                  disabled={
-                    isSubmitting ||
-                    Boolean(createJobBlockedReason) ||
-                    !sourceFile ||
-                    !maskFile
-                  }
-                  type="submit"
+                  className="button"
+                  disabled={!sourceFile}
+                  type="button"
+                  onClick={handleOpenMaskEditor}
                 >
-                  {isSubmitting
-                    ? 'Submitting...'
-                    : createJobBlockedReason
-                      ? 'Creation blocked by runtime config'
-                      : !sourceFile
-                        ? 'Choose a source image'
-                        : !maskFile
-                          ? 'Paint a mask to continue'
-                          : 'Create queued job'}
+                  {maskFile ? 'Reopen painter' : 'Open painter'}
                 </button>
-                <span className="muted">
-                  Default provider path stays unchanged. Unsupported runtime states still fail
-                  explicitly.
+                <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
+                  {maskFile ? 'Mask confirmed' : 'Paint a mask'}
                 </span>
               </div>
-              <div className="form-feedback">
-                {createJobBlockedReason ? (
-                  <div className="alert alert-error">{createJobBlockedReason}</div>
-                ) : null}
-                {message ? <div className="alert">{message}</div> : null}
-              </div>
+              <span className="upload-summary">
+                {getMaskPreviewSummary(maskFile) ??
+                  'No confirmed mask yet. Paint at least one editable region.'}
+              </span>
             </section>
-          </form>
-        </section>
+          </div>
 
-        <aside className="sidebar">
-          <RuntimeStatusPanel
-            error={runtimeError}
-            isLoading={isRefreshingRuntime}
-            onRefresh={refreshRuntimeCheck}
-            report={runtimeReport}
-          />
-
-          <section className="panel recent-jobs-panel">
+          <section className="stack">
             <div className="section-heading">
               <div className="section-heading-copy">
-                <div className="section-eyebrow">Recent jobs</div>
-                <h2 className="section-title">Track the latest runs</h2>
-                <p className="section-description muted">
-                  Use the detail page to inspect lifecycle state, provider selection, and worker
-                  events for each submitted edit.
-                </p>
+                <div className="section-eyebrow">Preview</div>
+                <h2 className="subsection-title">Source and mask</h2>
               </div>
-              <button className="button button-secondary" type="button" onClick={() => void refreshJobs()}>
-                Refresh
+              <button
+                className="button button-secondary"
+                disabled={!sourceFile}
+                type="button"
+                onClick={handleOpenMaskEditor}
+              >
+                {maskFile ? 'Refine mask' : 'Paint mask'}
               </button>
             </div>
-
-            {listJobsBlockedReason ? (
-              <div className="alert alert-error">{listJobsBlockedReason}</div>
-            ) : null}
-            {loadError ? <div className="alert alert-error">{loadError}</div> : null}
-
-            <div className="recent-job-list">
-              {jobs.length === 0 ? (
-                <div className="job-card muted">No jobs loaded yet. Submit a new edit or refresh.</div>
-              ) : (
-                jobs.map((job) => (
-                  <article className="recent-job-card" key={job.id}>
-                    <div className="recent-job-header">
-                      <div className="stack" style={{ gap: '0.35rem' }}>
-                        <strong className="job-id">{job.id}</strong>
-                        <span className="muted">
-                          {job.provider} • {job.model}
-                        </span>
-                      </div>
-                      <span className="status-pill">{job.status}</span>
-                    </div>
-                    <div className="recent-job-meta muted">
-                      <span>Stage: {job.stage ?? 'accepted'}</span>
-                      <span>Created: {new Date(job.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="muted">{job.prompt || 'No prompt provided.'}</p>
-                    <Link className="inline-link" params={{ jobId: job.id }} to="/editor/$jobId">
-                      Open job details
-                    </Link>
-                  </article>
-                ))
-              )}
+            <div className="preview-grid">
+              <ImagePreviewCard
+                alt="Selected source preview"
+                actions={
+                  sourcePreviewUrl && sourceFile
+                    ? [
+                        {
+                          href: sourcePreviewUrl,
+                          label: 'Open source',
+                          tone: 'secondary',
+                        },
+                        {
+                          href: sourcePreviewUrl,
+                          label: 'Download source',
+                          download: sourceFile.name,
+                        },
+                      ]
+                    : undefined
+                }
+                emptyLabel="Choose a source image to preview it before submission."
+                src={sourcePreviewUrl}
+                summary={getSelectedFileSummary(sourceFile)}
+                title="Source preview"
+              />
+              <ImagePreviewCard
+                alt="Generated mask preview"
+                actions={
+                  maskPreviewUrl
+                    ? [
+                        {
+                          href: maskPreviewUrl,
+                          label: 'Open mask',
+                          tone: 'secondary',
+                        },
+                        {
+                          href: maskPreviewUrl,
+                          label: 'Download mask',
+                          download: getMaskDownloadFilename(sourceFile),
+                        },
+                      ]
+                    : undefined
+                }
+                emptyLabel="Paint the editable region to generate a mask preview."
+                src={maskPreviewUrl}
+                summary={getMaskPreviewSummary(maskFile)}
+                title="Confirmed mask"
+              />
             </div>
           </section>
-        </aside>
+
+          <label className="field prompt-field">
+            <div className="upload-card-header">
+              <span className="step-badge">Step 3</span>
+              <strong>Prompt</strong>
+            </div>
+            <span className="muted">Optional guidance for what should be filled or replaced.</span>
+            <textarea
+              name="prompt"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              placeholder="Describe the new content, cleanup, or replacement you want."
+            />
+          </label>
+
+          <section className="submit-card">
+            <div className="upload-card-header">
+              <span className="step-badge">Step 4</span>
+              <strong>Submit job</strong>
+            </div>
+            <p className="muted">
+              This keeps the same source upload, mask export, and job creation flow.
+            </p>
+            <div className="actions">
+              <button
+                className="button button-cta"
+                disabled={isSubmitting || Boolean(createJobBlockedReason) || !sourceFile || !maskFile}
+                type="submit"
+              >
+                {isSubmitting
+                  ? 'Submitting...'
+                  : createJobBlockedReason
+                    ? 'Creation blocked by runtime config'
+                    : !sourceFile
+                      ? 'Choose a source image'
+                      : !maskFile
+                        ? 'Paint a mask to continue'
+                        : 'Create queued job'}
+              </button>
+              <span className="muted">
+                Opens the job detail page immediately after the record is created.
+              </span>
+            </div>
+            <div className="form-feedback">
+              {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
+              {message ? <div className="alert">{message}</div> : null}
+            </div>
+          </section>
+        </form>
+      </section>
+
+      <div className="simple-home-secondary">
+        <RuntimeStatusPanel
+          error={runtimeError}
+          isLoading={isRefreshingRuntime}
+          onRefresh={refreshRuntimeCheck}
+          report={runtimeReport}
+        />
+
+        <section className="panel recent-jobs-panel">
+          <div className="section-heading">
+            <div className="section-heading-copy">
+              <div className="section-eyebrow">Recent jobs</div>
+              <h2 className="section-title">Latest runs</h2>
+              <p className="section-description muted">
+                Use the detail page to inspect lifecycle state, provider selection, and worker events.
+              </p>
+            </div>
+            <button className="button button-secondary" type="button" onClick={() => void refreshJobs()}>
+              Refresh
+            </button>
+          </div>
+
+          {listJobsBlockedReason ? <div className="alert alert-error">{listJobsBlockedReason}</div> : null}
+          {loadError ? <div className="alert alert-error">{loadError}</div> : null}
+
+          <div className="recent-job-list">
+            {jobs.length === 0 ? (
+              <div className="job-card muted">No jobs loaded yet. Submit a new edit or refresh.</div>
+            ) : (
+              jobs.map((job) => (
+                <article className="recent-job-card" key={job.id}>
+                  <div className="recent-job-header">
+                    <div className="stack" style={{ gap: '0.35rem' }}>
+                      <strong className="job-id">{job.id}</strong>
+                      <span className="muted">
+                        {job.provider} • {job.model}
+                      </span>
+                    </div>
+                    <span className="status-pill">{job.status}</span>
+                  </div>
+                  <div className="recent-job-meta muted">
+                    <span>Stage: {job.stage ?? 'accepted'}</span>
+                    <span>Created: {new Date(job.createdAt).toLocaleString()}</span>
+                  </div>
+                  <p className="muted">{job.prompt || 'No prompt provided.'}</p>
+                  <Link className="inline-link" params={{ jobId: job.id }} to="/editor/$jobId">
+                    Open job details
+                  </Link>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
       </div>
 
       <ModalShell
-        bodyClassName="editor-modal-body"
-        className="editor-modal-shell-frame"
-        description="Paint or refine the editable region in one workstation. The canvas stays dominant, the review dock keeps full-image context visible, and Confirm replaces the mask used for submit."
-        eyebrow="Mask Workspace"
+        bodyClassName="canvas-editor-modal-body"
+        className="canvas-editor-modal"
         footer={
           <>
-            <div className="editor-workspace-footer-copy">
-              <strong>{draftMaskFile ? 'Draft mask ready to confirm.' : 'Paint at least one editable region.'}</strong>
+            <div className="canvas-editor-footer-copy">
+              <strong>{draftMaskFile ? 'Draft mask ready.' : 'Paint at least one editable region.'}</strong>
               <span className="muted">
                 {draftMaskFile
-                  ? 'Confirm replaces the current mask preview and the file used for submit.'
-                  : 'The workspace stays live while you paint. Cancel keeps the last confirmed mask.'}
+                  ? 'Confirm replaces the saved mask used for submit.'
+                  : 'Cancel keeps the last confirmed mask.'}
               </span>
             </div>
             <div className="actions">
@@ -657,130 +562,16 @@ function HomePage() {
             </div>
           </>
         }
-        headerActions={maskModalHeaderActions}
         open={isMaskEditorOpen}
-        title="Mask editor"
+        title="Paint mask"
         onClose={handleCancelMaskEditor}
       >
-        <div className="editor-workspace-shell">
-          <div className="editor-workspace-main">
-            <section className="editor-workspace-station">
-              <MaskPaintEditor
-                initialMaskUrl={maskPreviewUrl}
-                sourceFile={sourceFile}
-                sourceUrl={sourcePreviewUrl}
-                onMaskChange={handleDraftMaskChange}
-              />
-            </section>
-
-            <section className="editor-workspace-review-dock">
-              <div className="editor-workspace-review-header">
-                <div className="section-heading-copy">
-                  <div className="section-eyebrow">Review dock</div>
-                  <h3 className="subsection-title">Keep the whole composition visible while you paint</h3>
-                  <p className="muted" style={{ marginBottom: 0 }}>
-                    The editor stays full-width above while source and draft previews remain docked
-                    below for fast composition checks before you confirm the mask.
-                  </p>
-                </div>
-                <div className="editor-workspace-review-statuses">
-                  <span className="inline-status is-ready">Source in view</span>
-                  <span className={`inline-status ${draftMaskFile ? 'is-ready' : 'is-pending'}`}>
-                    {draftMaskFile ? 'Draft updates live' : 'Draft pending'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="editor-workspace-review-grid">
-                <ImagePreviewCard
-                  actions={
-                    sourcePreviewUrl && sourceFile
-                      ? [
-                          {
-                            href: sourcePreviewUrl,
-                            label: 'Open source',
-                            tone: 'secondary',
-                          },
-                          {
-                            href: sourcePreviewUrl,
-                            label: 'Download source',
-                            download: sourceFile.name,
-                          },
-                        ]
-                      : undefined
-                  }
-                  alt="Source workspace preview"
-                  badge="Source"
-                  emptyLabel="Choose a source image to begin editing."
-                  src={sourcePreviewUrl}
-                  summary={getSelectedFileSummary(sourceFile)}
-                  title="Source reference"
-                  variant="supporting"
-                />
-
-                <ImagePreviewCard
-                  actions={
-                    draftMaskPreviewUrl
-                      ? [
-                          {
-                            href: draftMaskPreviewUrl,
-                            label: 'Open draft mask',
-                            tone: 'secondary',
-                          },
-                          {
-                            href: draftMaskPreviewUrl,
-                            label: 'Download draft mask',
-                            download: getMaskDownloadFilename(sourceFile),
-                          },
-                        ]
-                      : undefined
-                  }
-                  alt="Draft mask workspace preview"
-                  badge="Draft"
-                  emptyLabel="Paint at least one editable region to generate the live draft preview."
-                  src={draftMaskPreviewUrl}
-                  summary={getMaskPreviewSummary(draftMaskFile)}
-                  title="Live draft mask"
-                  variant="supporting"
-                />
-              </div>
-            </section>
-          </div>
-
-          <aside className="editor-workspace-sidebar">
-            <section className="editor-workspace-summary">
-              <div className="section-heading-copy">
-                <div className="section-eyebrow">Workstation</div>
-                <h3 className="subsection-title">Canvas first, handoff on the rail</h3>
-                <p className="muted" style={{ marginBottom: 0 }}>
-                  Overlay, Source, and Mask still share one editor. The side rail now stays focused
-                  on session status while review lives directly under the canvas.
-                </p>
-              </div>
-              <div className="editor-workspace-checklist muted">
-                <span>{sourceFile ? `Source loaded: ${sourceFile.name}` : 'Source image pending'}</span>
-                <span>Review stays docked below the editor instead of taking canvas width.</span>
-                <span>Confirm replaces the current mask preview used for submit.</span>
-              </div>
-            </section>
-
-            <section className="editor-workspace-summary">
-              <div className="section-heading-copy">
-                <div className="section-eyebrow">Handoff</div>
-                <h3 className="subsection-title">Confirm only when the dock looks right</h3>
-                <p className="muted" style={{ marginBottom: 0 }}>
-                  Use the dock for overall silhouette checks, then confirm to replace the saved mask
-                  that the submit flow will upload.
-                </p>
-              </div>
-              <div className="editor-workspace-checklist muted">
-                <span>{draftMaskFile ? 'Draft mask is live and ready for review.' : 'First stroke unlocks the live draft mask.'}</span>
-                <span>Cancel keeps the last confirmed mask unchanged.</span>
-                <span>Open or download either preview directly from the review dock.</span>
-              </div>
-            </section>
-          </aside>
-        </div>
+        <MaskPaintEditor
+          initialMaskUrl={maskPreviewUrl}
+          sourceFile={sourceFile}
+          sourceUrl={sourcePreviewUrl}
+          onMaskChange={handleDraftMaskChange}
+        />
       </ModalShell>
     </div>
   )
