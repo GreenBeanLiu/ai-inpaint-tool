@@ -537,32 +537,27 @@ function HomePage() {
       <ModalShell
         bodyClassName="canvas-editor-modal-body"
         className="canvas-editor-modal"
-        footer={
+        description="Paint directly on the source image, then keep the existing mask or use this draft."
+        headerActions={
           <>
-            <div className="canvas-editor-footer-copy">
-              <strong>{draftMaskFile ? 'Draft mask ready.' : 'Paint at least one editable region.'}</strong>
-              <span className="muted">
-                {draftMaskFile
-                  ? 'Confirm replaces the saved mask used for submit.'
-                  : 'Cancel keeps the last confirmed mask.'}
-              </span>
-            </div>
-            <div className="actions">
-              <button className="button button-secondary" type="button" onClick={handleCancelMaskEditor}>
-                Cancel
-              </button>
-              <button
-                className="button"
-                disabled={!draftMaskFile}
-                type="button"
-                onClick={handleConfirmMaskEditor}
-              >
-                Confirm mask
-              </button>
-            </div>
+            <span className={`status-pill ${draftMaskFile ? 'status-pill-ready' : ''}`}>
+              {draftMaskFile ? 'Draft ready' : 'Mask required'}
+            </span>
+            <button className="button button-secondary" type="button" onClick={handleCancelMaskEditor}>
+              {maskFile ? 'Keep current mask' : 'Cancel'}
+            </button>
+            <button
+              className="button"
+              disabled={!draftMaskFile}
+              type="button"
+              onClick={handleConfirmMaskEditor}
+            >
+              Use mask
+            </button>
           </>
         }
         open={isMaskEditorOpen}
+        showCloseButton={false}
         title="Paint mask"
         onClose={handleCancelMaskEditor}
       >

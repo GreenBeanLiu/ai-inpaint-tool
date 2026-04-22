@@ -911,6 +911,12 @@ export function MaskPaintEditor({
     stageSize && dimensions ? Math.max(14, (brushSize / dimensions.width) * stageSize.width) : 0
   const showBrushPreview =
     Boolean(stageSize && dimensions && hoverPoint && !isPanning && !isSpacePressed)
+  const canResetView = zoom > MIN_ZOOM || panOffset.x !== 0 || panOffset.y !== 0
+  const brushModeLabel = brushMode === 'paint' ? 'Paint mask' : 'Erase mask'
+  const brushModeHint =
+    brushMode === 'paint' ? 'Reveal the area to regenerate.' : 'Trim the mask edge.'
+  const viewHint =
+    zoom > MIN_ZOOM ? `${visibleCoverage}% of the image is visible.` : 'Image fitted to the canvas.'
 
   return (
     <section
@@ -925,90 +931,128 @@ export function MaskPaintEditor({
       onKeyUp={handleEditorKeyUp}
       onPointerDownCapture={() => sectionRef.current?.focus()}
     >
-      <div className="mask-editor-topbar">
-        <div className="mask-editor-primary-tools">
-          <div className="segmented-controls" role="group" aria-label="Mask tool">
-            <button
-              aria-pressed={brushMode === 'paint'}
-              className="button button-secondary"
-              type="button"
-              onClick={() => setBrushMode('paint')}
-            >
-              Brush
-            </button>
-            <button
-              aria-pressed={brushMode === 'erase'}
-              className="button button-secondary"
-              type="button"
-              onClick={() => setBrushMode('erase')}
-            >
-              Erase
-            </button>
-          </div>
-
-          <label className="mask-editor-size-control">
-            <span className="mask-editor-control-label">Size</span>
-            <input
-              aria-label="Brush size"
-              max={MAX_BRUSH_SIZE}
-              min={MIN_BRUSH_SIZE}
-              step={BRUSH_STEP}
-              type="range"
-              value={brushSize}
-              onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))}
-            />
-            <span className="brush-size-chip">{brushSize}px</span>
-          </label>
-        </div>
-
-        <div className="mask-editor-utility-tools">
-          <button
-            className="button button-secondary"
-            disabled={!canUndo}
-            type="button"
-            onClick={() => void handleUndo()}
-          >
-            Undo
-          </button>
-          <button
-            className="button button-secondary"
-            disabled={!canRedo}
-            type="button"
-            onClick={() => void handleRedo()}
-          >
-            Redo
-          </button>
-          <button
-            className="button button-secondary"
-            disabled={zoom <= MIN_ZOOM}
-            type="button"
-            onClick={() => handleZoomChange(zoom - ZOOM_STEP)}
-          >
-            -
-          </button>
-          <span className="brush-size-chip">{Math.round(zoom * 100)}%</span>
-          <button
-            className="button button-secondary"
-            disabled={zoom >= MAX_ZOOM}
-            type="button"
-            onClick={() => handleZoomChange(zoom + ZOOM_STEP)}
-          >
-            +
-          </button>
-          <button
-            className="button button-secondary"
-            disabled={zoom === MIN_ZOOM && panOffset.x === 0 && panOffset.y === 0}
-            type="button"
-            onClick={handleFitView}
-          >
-            Fit view
-          </button>
-        </div>
-      </div>
-
       <div className="mask-editor-stage-frame">
         {sourceUrl && dimensions ? (
           <div className="mask-editor-workspace">
+            <div className="mask-editor-toolbar-tray">
+              <div className="mask-editor-toolgroup">
+                <div className="mask-editor-tool-summary">
+                  <span className="mask-editor-control-label">Brush</span>
+                  <strong>{brushModeLabel}</strong>
+                  <span className="muted">{brushModeHint}</span>
+                </div>
+
+                <div className="segmented-controls" role="group" aria-label="Mask tool">
+                  <button
+                    aria-pressed={brushMode === 'paint'}
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => setBrushMode('paint')}
+                  >
+                    Paint (B)
+                  </button>
+                  <button
+                    aria-pressed={brushMode === 'erase'}
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => setBrushMode('erase')}
+                  >
+                    Erase (E)
+                  </button>
+                </div>
+
+                <label className="mask-editor-size-control">
+                  <span className="mask-editor-control-copy">
+                    <span className="mask-editor-control-label">Brush size</span>
+                    <strong>{brushSize}px</strong>
+                  </span>
+                  <div className="mask-editor-range-control">
+                    <button
+                      aria-label="Decrease brush size"
+                      className="button button-secondary"
+                      disabled={brushSize <= MIN_BRUSH_SIZE}
+                      type="button"
+                      onClick={() => handleAdjustBrushSize(-BRUSH_STEP)}
+                    >
+                      -
+                    </button>
+                    <input
+                      aria-label="Brush size"
+                      max={MAX_BRUSH_SIZE}
+                      min={MIN_BRUSH_SIZE}
+                      step={BRUSH_STEP}
+                      type="range"
+                      value={brushSize}
+                      onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))}
+                    />
+                    <button
+                      aria-label="Increase brush size"
+                      className="button button-secondary"
+                      disabled={brushSize >= MAX_BRUSH_SIZE}
+                      type="button"
+                      onClick={() => handleAdjustBrushSize(BRUSH_STEP)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </label>
+              </div>
+
+              <div className="mask-editor-toolgroup">
+                <div className="mask-editor-tool-summary">
+                  <span className="mask-editor-control-label">View</span>
+                  <strong>{Math.round(zoom * 100)}%</strong>
+                  <span className="muted">{viewHint}</span>
+                </div>
+
+                <div className="segmented-controls" role="group" aria-label="History controls">
+                  <button
+                    className="button button-secondary"
+                    disabled={!canUndo}
+                    type="button"
+                    onClick={() => void handleUndo()}
+                  >
+                    Undo
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={!canRedo}
+                    type="button"
+                    onClick={() => void handleRedo()}
+                  >
+                    Redo
+                  </button>
+                </div>
+
+                <div className="segmented-controls" role="group" aria-label="View controls">
+                  <button
+                    className="button button-secondary"
+                    disabled={zoom <= MIN_ZOOM}
+                    type="button"
+                    onClick={() => handleZoomChange(zoom - ZOOM_STEP)}
+                  >
+                    Zoom out
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={zoom >= MAX_ZOOM}
+                    type="button"
+                    onClick={() => handleZoomChange(zoom + ZOOM_STEP)}
+                  >
+                    Zoom in
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={!canResetView}
+                    type="button"
+                    onClick={handleFitView}
+                  >
+                    Fit view
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div className="mask-editor-workspace-viewport" ref={workspaceViewportRef}>
               {stageSize ? (
                 <>
@@ -1060,8 +1104,8 @@ export function MaskPaintEditor({
                   {minimapSize && visibleStageRect && canNavigateMinimap ? (
                     <div className="mask-editor-minimap-shell">
                       <div className="mask-editor-minimap-header">
-                        <strong>Map</strong>
-                        <span>{visibleCoverage}% view</span>
+                        <strong>Navigator</strong>
+                        <span>{visibleCoverage}% visible</span>
                       </div>
                       <div
                         className="mask-editor-minimap"
@@ -1094,6 +1138,17 @@ export function MaskPaintEditor({
                       </div>
                     </div>
                   ) : null}
+
+                  <div className="mask-editor-stage-status">
+                    <span className={`status-pill ${hasPaint ? 'status-pill-ready' : ''}`}>
+                      {hasPaint ? 'Mask ready' : 'Mask empty'}
+                    </span>
+                    <span>
+                      {dimensions.width} × {dimensions.height}
+                    </span>
+                    <span>{zoom > MIN_ZOOM ? 'Drag the image to pan.' : 'Hold Space and drag to pan.'}</span>
+                    <span>Shortcuts: B, E, [, ], Cmd/Ctrl+Z.</span>
+                  </div>
                 </>
               ) : null}
             </div>
@@ -1114,16 +1169,6 @@ export function MaskPaintEditor({
             onLoad={handleImageLoad}
           />
         ) : null}
-      </div>
-
-      <div className="mask-editor-footer muted">
-        <div className="mask-editor-meta">
-          <span>
-            {dimensions ? `${dimensions.width} × ${dimensions.height}` : 'Source dimensions pending'}
-          </span>
-          <span>{hasPaint ? 'Mask ready to confirm.' : 'Paint to create the mask.'}</span>
-          <span>Shortcuts: Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z, B, E, [, ], Space-drag.</span>
-        </div>
       </div>
     </section>
   )

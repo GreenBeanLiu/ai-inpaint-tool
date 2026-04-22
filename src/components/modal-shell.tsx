@@ -10,6 +10,7 @@ interface ModalShellProps {
   footer?: ReactNode
   className?: string
   bodyClassName?: string
+  showCloseButton?: boolean
   onClose: () => void
   children: ReactNode
 }
@@ -23,6 +24,7 @@ export function ModalShell({
   footer,
   className,
   bodyClassName,
+  showCloseButton = true,
   onClose,
   children,
 }: Readonly<ModalShellProps>) {
@@ -87,14 +89,16 @@ export function ModalShell({
           </div>
           <div className="modal-header-actions">
             {headerActions}
-            <button
-              aria-label="Close dialog"
-              className="button button-secondary"
-              type="button"
-              onClick={onClose}
-            >
-              Close
-            </button>
+            {showCloseButton ? (
+              <button
+                aria-label="Close dialog"
+                className="button button-secondary"
+                type="button"
+                onClick={onClose}
+              >
+                Close
+              </button>
+            ) : null}
           </div>
         </div>
 
