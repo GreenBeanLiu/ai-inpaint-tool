@@ -153,6 +153,20 @@ function getRuntimeCreateTone(report: RuntimeCheckReport | null) {
   return report.overall.canCreateJob ? 'is-ready' : 'is-blocked'
 }
 
+function haveImageDimensionsMismatch(
+  sourceDimensions: ImageDimensions | null,
+  maskDimensions: ImageDimensions | null,
+) {
+  if (!sourceDimensions || !maskDimensions) {
+    return false
+  }
+
+  return (
+    sourceDimensions.width !== maskDimensions.width ||
+    sourceDimensions.height !== maskDimensions.height
+  )
+}
+
 function HomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
@@ -348,6 +362,38 @@ function HomePage() {
       runtimeReport?.overall.blockers[0] ??
       null
   const activeJobs = jobs.filter((job) => job.status === 'queued' || job.status === 'processing')
+  const sourceMaskDimensionMismatch = haveImageDimensionsMismatch(sourceDimensions, maskDimensions)
+  const submitValidationItems = [
+    {
+      label: sourceFile ? 'Source image selected' : 'Choose a source image',
+      ready: Boolean(sourceFile),
+    },
+    {
+      label: maskFile ? 'Mask confirmed' : 'Paint and confirm a mask',
+      ready: Boolean(maskFile),
+    },
+    {
+      label: sourceMaskDimensionMismatch
+        ? 'Source and mask dimensions do not match'
+        : 'Source and mask dimensions match',
+      ready: !sourceMaskDimensionMismatch,
+      pending: Boolean(sourceFile && maskFile && (!sourceDimensions || !maskDimensions)),
+    },
+    {
+      label: createJobBlockedReason ?? 'Runtime ready to create jobs',
+      ready: !createJobBlockedReason,
+      pending: !runtimeReport,
+    },
+  ]
+  const submitBlockedReason =
+    createJobBlockedReason ??
+    (sourceMaskDimensionMismatch
+      ? 'Fix the source and mask dimensions before submitting.'
+      : !sourceFile
+        ? 'Choose a source image'
+        : !maskFile
+          ? 'Paint a mask to continue'
+          : null)
 
   return (
     <div className="home-page">
@@ -400,6 +446,9 @@ function HomePage() {
               <span className="upload-summary">
                 {getSelectedFileSummary(sourceFile, sourceDimensions) ?? 'No image selected yet.'}
               </span>
+              {!sourceFile ? (
+                <div className="inline-validation-note">A source image is required before you can paint or submit.</div>
+              ) : null}
             </label>
 
             <section className="mask-launch-card simplified-mask-card">
@@ -428,6 +477,17 @@ function HomePage() {
                 {getMaskPreviewSummary(maskFile, maskDimensions) ??
                   'No confirmed mask yet. Paint at least one editable region.'}
               </span>
+              {sourceFile && !maskFile ? (
+                <div className="inline-validation-note">
+                  Open the painter and confirm a mask before creating the job.
+                </div>
+              ) : null}
+              {sourceMaskDimensionMismatch ? (
+                <div className="inline-validation-note inline-validation-note-error">
+                  The current mask dimensions do not match the source image. Reopen the painter and
+                  regenerate the mask from this source.
+                </div>
+              ) : null}
             </section>
           </div>
 
@@ -550,21 +610,37 @@ function HomePage() {
             <p className="muted">
               This keeps the same source upload, mask export, and job creation flow.
             </p>
+            <div className="submit-validation-list">
+              {submitValidationItems.map((item) => (
+                <div className="submit-validation-row" key={item.label}>
+                  <span
+                    className={`inline-status ${
+                      item.pending ? 'is-pending' : item.ready ? 'is-ready' : 'is-blocked'
+                    }`}
+                  >
+                    {item.pending ? 'Checking' : item.ready ? 'Ready' : 'Fix'}
+                  </span>
+                  <span className="submit-validation-copy">{item.label}</span>
+                </div>
+              ))}
+            </div>
             <div className="actions">
               <button
                 className="button button-cta"
-                disabled={isSubmitting || Boolean(createJobBlockedReason) || !sourceFile || !maskFile}
+                disabled={isSubmitting || Boolean(submitBlockedReason)}
                 type="submit"
               >
                 {isSubmitting
                   ? 'Submitting...'
                   : createJobBlockedReason
                     ? 'Creation blocked by runtime config'
-                    : !sourceFile
-                      ? 'Choose a source image'
-                      : !maskFile
-                        ? 'Paint a mask to continue'
-                        : 'Create queued job'}
+                    : sourceMaskDimensionMismatch
+                      ? 'Fix source and mask dimensions'
+                      : !sourceFile
+                        ? 'Choose a source image'
+                        : !maskFile
+                          ? 'Paint a mask to continue'
+                          : 'Create queued job'}
               </button>
               <span className="muted">
                 Opens the job detail page immediately after the record is created.
@@ -572,6 +648,11 @@ function HomePage() {
             </div>
             <div className="form-feedback">
               {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
+              {sourceMaskDimensionMismatch ? (
+                <div className="alert alert-error">
+                  Source image and mask must have identical dimensions before submission.
+                </div>
+              ) : null}
               {message ? <div className="alert">{message}</div> : null}
             </div>
           </section>

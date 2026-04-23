@@ -301,7 +301,8 @@ input[type='range'] {
   color: #9ff0ce;
 }
 
-.hero-runtime-chip.is-blocked {
+.hero-runtime-chip.is-blocked,
+.inline-status.is-blocked {
   border-color: rgba(255, 111, 122, 0.32);
   background: rgba(255, 111, 122, 0.14);
   color: #ffc1c7;
@@ -528,6 +529,25 @@ input[type='range'] {
   font-size: 0.92rem;
 }
 
+.inline-validation-note,
+.submit-validation-row {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted-strong);
+}
+
+.inline-validation-note {
+  padding: 0.8rem 0.9rem;
+  font-size: 0.92rem;
+}
+
+.inline-validation-note-error {
+  border-color: rgba(255, 111, 122, 0.24);
+  background: rgba(255, 111, 122, 0.12);
+  color: #ffd8dd;
+}
+
 .mask-launch-card {
   display: grid;
   gap: 1rem;
@@ -573,6 +593,24 @@ input[type='range'] {
   border-color: rgba(255, 143, 91, 0.32);
   background: rgba(255, 143, 91, 0.16);
   color: #ffd8c8;
+}
+
+.submit-validation-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.submit-validation-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 0.75rem 0.85rem;
+}
+
+.submit-validation-copy {
+  flex: 1 1 18rem;
 }
 
 .submit-card {
