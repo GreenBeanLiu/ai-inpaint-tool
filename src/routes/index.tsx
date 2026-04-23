@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
+interface ImageDimensions {
+  width: number
+  height: number
+}
+
+const PROMPT_EXAMPLES = [
+  'Remove the person in the background and rebuild the wall behind them.',
+  'Replace the masked area with a clean wooden table that matches the scene lighting.',
+  'Fill the masked region with blue sky and soft clouds that blend naturally.',
+] as const
+
 import { ImagePreviewCard } from '@/components/image-preview-card'
 import { MaskPaintEditor } from '@/components/mask-paint-editor'
 import { ModalShell } from '@/components/modal-shell'
@@ -31,6 +42,45 @@ function useObjectUrl(file: File | null) {
   return url
 }
 
+function useImageDimensions(url: string | null) {
+  const [dimensions, setDimensions] = useState<ImageDimensions | null>(null)
+
+  useEffect(() => {
+    if (!url) {
+      setDimensions(null)
+      return
+    }
+
+    let cancelled = false
+    const image = new Image()
+
+    image.onload = () => {
+      if (cancelled) {
+        return
+      }
+
+      setDimensions({
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+      })
+    }
+
+    image.onerror = () => {
+      if (!cancelled) {
+        setDimensions(null)
+      }
+    }
+
+    image.src = url
+
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  return dimensions
+}
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024) {
     return `${bytes} B`
@@ -45,21 +95,36 @@ function formatFileSize(bytes: number) {
   return `${(kb / 1024).toFixed(1)} MB`
 }
 
-function getSelectedFileSummary(file: File | null) {
+function formatImageDimensions(dimensions: ImageDimensions | null) {
+  if (!dimensions) {
+    return null
+  }
+
+  return `${dimensions.width} × ${dimensions.height}px`
+}
+
+function getSelectedFileSummary(file: File | null, dimensions?: ImageDimensions | null) {
   if (!file) {
     return null
   }
 
   const type = file.type || 'Unknown type'
-  return `${file.name} • ${type} • ${formatFileSize(file.size)}`
+  const summaryParts = [
+    file.name,
+    formatImageDimensions(dimensions ?? null),
+    type,
+    formatFileSize(file.size),
+  ]
+
+  return summaryParts.filter((value): value is string => Boolean(value)).join(' • ')
 }
 
-function getMaskPreviewSummary(file: File | null) {
+function getMaskPreviewSummary(file: File | null, dimensions?: ImageDimensions | null) {
   if (!file) {
     return null
   }
 
-  return `${getSelectedFileSummary(file)} • Transparent areas are editable`
+  return `${getSelectedFileSummary(file, dimensions)} • Transparent areas are editable`
 }
 
 function stripExtension(filename: string) {
@@ -104,6 +169,8 @@ function HomePage() {
   const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
   const sourcePreviewUrl = useObjectUrl(sourceFile)
   const maskPreviewUrl = useObjectUrl(maskFile)
+  const sourceDimensions = useImageDimensions(sourcePreviewUrl)
+  const maskDimensions = useImageDimensions(maskPreviewUrl)
 
   useEffect(() => {
     void refreshRuntimeCheck().catch((error) => {
@@ -331,7 +398,7 @@ function HomePage() {
                 type="file"
               />
               <span className="upload-summary">
-                {getSelectedFileSummary(sourceFile) ?? 'No image selected yet.'}
+                {getSelectedFileSummary(sourceFile, sourceDimensions) ?? 'No image selected yet.'}
               </span>
             </label>
 
@@ -358,7 +425,7 @@ function HomePage() {
                 </span>
               </div>
               <span className="upload-summary">
-                {getMaskPreviewSummary(maskFile) ??
+                {getMaskPreviewSummary(maskFile, maskDimensions) ??
                   'No confirmed mask yet. Paint at least one editable region.'}
               </span>
             </section>
@@ -400,7 +467,7 @@ function HomePage() {
                 }
                 emptyLabel="Choose a source image to preview it before submission."
                 src={sourcePreviewUrl}
-                summary={getSelectedFileSummary(sourceFile)}
+                summary={getSelectedFileSummary(sourceFile, sourceDimensions)}
                 title="Source preview"
               />
               <ImagePreviewCard
@@ -423,7 +490,7 @@ function HomePage() {
                 }
                 emptyLabel="Paint the editable region to generate a mask preview."
                 src={maskPreviewUrl}
-                summary={getMaskPreviewSummary(maskFile)}
+                summary={getMaskPreviewSummary(maskFile, maskDimensions)}
                 title="Confirmed mask"
               />
             </div>
@@ -439,8 +506,40 @@ function HomePage() {
               name="prompt"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe the new content, cleanup, or replacement you want."
+              placeholder="Describe the new content, cleanup, or replacement you want inside the mask."
             />
+            <div className="prompt-example-block">
+              <div className="prompt-example-header">
+                <span className="mask-editor-control-label">Quick examples</span>
+                <span className="muted">Tap one to seed the prompt, then tweak it.</span>
+              </div>
+              <div className="prompt-example-list">
+                {PROMPT_EXAMPLES.map((example) => {
+                  const isSelected = prompt === example
+
+                  return (
+                    <button
+                      aria-pressed={isSelected}
+                      className={`button button-secondary prompt-example-chip${isSelected ? ' is-active' : ''}`}
+                      key={example}
+                      type="button"
+                      onClick={() => setPrompt(example)}
+                    >
+                      {example}
+                    </button>
+                  )
+                })}
+                {prompt ? (
+                  <button
+                    className="button button-secondary prompt-example-clear"
+                    type="button"
+                    onClick={() => setPrompt('')}
+                  >
+                    Clear prompt
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </label>
 
           <section className="submit-card">

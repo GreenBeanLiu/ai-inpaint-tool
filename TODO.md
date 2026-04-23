@@ -61,26 +61,26 @@ So the next phase should focus on turning this from an honest backend scaffold i
 ## Priority 2 - Improve product usability
 
 ### 4. Add image previews everywhere
-- [ ] Show source image preview on the home page before submit
-- [ ] Show mask preview on the home page before submit
-- [ ] Show source, mask, and result previews on the job detail page
-- [ ] Display image dimensions and file size in a friendlier way
-- [ ] Add empty/error states for broken image URLs
+- [x] Show source image preview on the home page before submit
+- [x] Show mask preview on the home page before submit
+- [x] Show source, mask, and result previews on the job detail page
+- [x] Display image dimensions and file size in a friendlier way
+- [x] Add empty/error states for broken image URLs
 
 ### 5. Make job status updates feel alive
-- [ ] Add polling on the detail page as the first step
-- [ ] Auto-refresh when job is `queued` or `processing`
-- [ ] Stop refreshing once job is `succeeded` or `failed`
+- [x] Add polling on the detail page as the first step
+- [x] Auto-refresh when job is `queued` or `processing`
+- [x] Stop refreshing once job is `succeeded` or `failed`
 - [ ] Later, add SSE or WebSocket push updates
 - [ ] Surface lifecycle events in a more readable timeline UI
 
 ### 6. Improve form UX
-- [ ] Disable submit when source/mask are missing
+- [x] Disable submit when source/mask are missing
 - [ ] Add inline validation messages before submit
 - [ ] Warn when source and mask dimensions do not match if detectable client-side
 - [ ] Add provider/model selectors only when multiple providers are truly supported
 - [ ] Add drag-and-drop upload support
-- [ ] Add prompt examples for common inpainting tasks
+- [x] Add prompt examples for common inpainting tasks
 
 ---
 

@@ -76,12 +76,12 @@ export function ModalShell({
         <div className="modal-header">
           <div className="modal-header-copy">
             {eyebrow ? <div className="modal-eyebrow">{eyebrow}</div> : null}
-            <div className="stack" style={{ gap: '0.45rem' }}>
-              <h2 id={titleId} style={{ margin: 0 }}>
+            <div className="modal-title-stack">
+              <h2 className="modal-title" id={titleId}>
                 {title}
               </h2>
               {description ? (
-                <p className="muted" id={descriptionId} style={{ margin: 0 }}>
+                <p className="modal-description muted" id={descriptionId}>
                   {description}
                 </p>
               ) : null}

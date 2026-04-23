@@ -52,7 +52,7 @@ const MIN_BRUSH_SIZE = 8
 const MAX_BRUSH_SIZE = 160
 const BRUSH_STEP = 4
 const BRUSH_PRESETS = [16, DEFAULT_BRUSH_SIZE, 88] as const
-const MASK_OVERLAY_OPACITY = 0.52
+const MASK_OVERLAY_OPACITY = 0.44
 const PAINT_COLOR = '#d54837'
 const MAX_HISTORY_ENTRIES = 80
 const MIN_ZOOM = 1
@@ -308,6 +308,7 @@ export function MaskPaintEditor({
   const [zoom, setZoom] = useState(MIN_ZOOM)
   const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 })
   const [isSpacePressed, setIsSpacePressed] = useState(false)
+  const [isPainting, setIsPainting] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const [isNavigatingMinimap, setIsNavigatingMinimap] = useState(false)
   const stageSize = getFittedStageSize(dimensions, workspaceSize, FIT_VIEW_PADDING)
@@ -346,6 +347,7 @@ export function MaskPaintEditor({
     setHoverPoint(null)
     setZoom(MIN_ZOOM)
     setPanOffset({ x: 0, y: 0 })
+    setIsPainting(false)
     setIsPanning(false)
     setIsNavigatingMinimap(false)
     setIsSpacePressed(false)
@@ -680,6 +682,7 @@ export function MaskPaintEditor({
     strokeBrushSizeRef.current = brushSize
     hasPaintRef.current = true
     setHasPaint(true)
+    setIsPainting(true)
     drawBrushDot(context, point, strokeBrushSizeRef.current, strokeBrushModeRef.current)
     canvas.setPointerCapture(event.pointerId)
   }
@@ -778,6 +781,7 @@ export function MaskPaintEditor({
     const points = strokePointsRef.current
     activeStrokePointerIdRef.current = null
     strokePointsRef.current = []
+    setIsPainting(false)
 
     if (points.length === 0) {
       return
@@ -917,11 +921,10 @@ export function MaskPaintEditor({
     Boolean(stageSize && dimensions && hoverPoint && !isPanning && !isSpacePressed)
   const canResetView = zoom > MIN_ZOOM || panOffset.x !== 0 || panOffset.y !== 0
   const brushModeLabel = brushMode === 'paint' ? 'Paint' : 'Erase'
-  const brushModeHint =
-    brushMode === 'paint' ? 'Reveal the area to regenerate.' : 'Trim the mask edge.'
   const brushPreviewChipSize = clampNumber(Math.round(brushSize * 0.3), 10, 34)
-  const viewHint =
-    zoom > MIN_ZOOM ? `${visibleCoverage}% of the image is visible.` : 'Image fitted to the canvas.'
+  const viewHint = zoom > MIN_ZOOM ? `${visibleCoverage}% visible` : 'Fitted'
+  const interactionHint =
+    zoom > MIN_ZOOM ? 'Drag to pan' : 'Hold space to pan'
 
   return (
     <section
@@ -944,12 +947,21 @@ export function MaskPaintEditor({
                 <>
                   <div className="mask-editor-topbar">
                     <div className="mask-editor-toolgroup mask-editor-toolgroup-primary">
-                      <div className="mask-editor-tool-summary">
+                      <div className="mask-editor-tool-summary mask-editor-tool-summary-compact">
                         <span className="mask-editor-control-label">Brush</span>
-                        <strong>
-                          {brushModeLabel} · {brushSize}px
-                        </strong>
-                        <span className="muted">{brushModeHint}</span>
+                        <div className="mask-editor-inline-stat">
+                          <span
+                            aria-hidden="true"
+                            className="mask-editor-brush-chip"
+                            data-mode={brushMode}
+                            style={{
+                              height: `${brushPreviewChipSize}px`,
+                              width: `${brushPreviewChipSize}px`,
+                            }}
+                          />
+                          <strong>{brushModeLabel}</strong>
+                          <span className="muted">{brushSize}px</span>
+                        </div>
                       </div>
 
                       <div className="mask-editor-primary-tools">
@@ -976,16 +988,8 @@ export function MaskPaintEditor({
                           <span className="mask-editor-control-copy">
                             <span className="mask-editor-control-label">Brush size</span>
                             <span className="mask-editor-size-readout">
-                              <span
-                                aria-hidden="true"
-                                className="mask-editor-brush-chip"
-                                data-mode={brushMode}
-                                style={{
-                                  height: `${brushPreviewChipSize}px`,
-                                  width: `${brushPreviewChipSize}px`,
-                                }}
-                              />
                               <strong>{brushSize}px</strong>
+                              <span className="muted">{interactionHint}</span>
                             </span>
                           </span>
                           <div className="mask-editor-range-control">
@@ -1038,10 +1042,12 @@ export function MaskPaintEditor({
                     </div>
 
                     <div className="mask-editor-toolgroup mask-editor-toolgroup-utility">
-                      <div className="mask-editor-tool-summary">
+                      <div className="mask-editor-tool-summary mask-editor-tool-summary-compact">
                         <span className="mask-editor-control-label">View</span>
-                        <strong>{Math.round(zoom * 100)}%</strong>
-                        <span className="muted">{viewHint}</span>
+                        <div className="mask-editor-inline-stat">
+                          <strong>{Math.round(zoom * 100)}%</strong>
+                          <span className="muted">{viewHint}</span>
+                        </div>
                       </div>
 
                       <div className="mask-editor-utility-tools">
@@ -1098,6 +1104,7 @@ export function MaskPaintEditor({
 
                   <div
                     className="mask-editor-stage"
+                    data-painting={isPainting ? 'true' : undefined}
                     data-panning={isPanning ? 'true' : undefined}
                     style={{
                       height: `${stageSize.height}px`,
@@ -1186,11 +1193,8 @@ export function MaskPaintEditor({
                     <span>
                       {brushModeLabel} · {brushSize}px
                     </span>
-                    <span>
-                      {dimensions.width} × {dimensions.height}
-                    </span>
-                    <span>{zoom > MIN_ZOOM ? 'Drag to pan.' : 'Space-drag to pan.'}</span>
-                    <span>Secondary click erases.</span>
+                    <span>{Math.round(zoom * 100)}%</span>
+                    <span>{interactionHint}</span>
                   </div>
                 </>
               ) : null}
