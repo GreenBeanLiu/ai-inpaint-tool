@@ -60,7 +60,7 @@ export function assertOpenAiMaskedEditUploadCompatibility(
       maskMimeType: normalizedMaskMimeType || null,
       supportedMimeTypes: openAiMaskedEditMimeTypes,
       docsUrl: OPENAI_IMAGE_EDIT_DOCS_URL,
-      note: 'JPEG is rejected here because the mask must carry transparency and this worker does not transcode uploads before calling the OpenAI Images API.',
+      note: 'JPEG is rejected here because the mask must carry transparency and this server path does not transcode uploads before calling the OpenAI Images API. The default homepage flow normalizes JPEG and WEBP source images to PNG before upload.',
     })
   }
 }

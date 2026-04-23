@@ -59,18 +59,18 @@ TRIGGER_PROJECT_REF=""
 TRIGGER_SECRET_KEY=""
 ```
 
-OpenRouter image editing worker (default wired provider):
+Optional OpenRouter image editing worker:
 
 ```dotenv
 OPENROUTER_API_KEY=""
 OPENROUTER_IMAGE_MODEL="openai/gpt-5-image-mini"
 ```
 
-Optional direct OpenAI provider slot:
+Default direct OpenAI image editing worker:
 
 ```dotenv
 OPENAI_API_KEY=""
-OPENAI_IMAGE_MODEL="gpt-image-1.5"
+OPENAI_IMAGE_MODEL="gpt-image-1"
 ```
 
 Optional Gemini provider slot:
@@ -92,8 +92,9 @@ What works now:
 - Homepage form submits multipart job intake to `POST /api/edit-jobs`
 - The API requires `multipart/form-data` with `image`, `mask`, and optional `prompt`, `provider`, `model` fields
 - Input is validated with Zod plus file checks for presence, MIME type, size, and matching image dimensions
-- The default masked inpainting path now targets OpenRouter with provider/model defaults of `openrouter` and `openai/gpt-5-image-mini`
+- The default masked inpainting path now targets direct OpenAI with provider/model defaults of `openai` and `gpt-image-1`
 - For OpenRouter masked edits, the API accepts PNG, JPEG, or WEBP source uploads and requires a PNG or WEBP mask upload because the adapter sends both images through OpenRouter chat-completions image inputs instead of a dedicated binary mask field
+- The default homepage flow now normalizes JPEG and WEBP source selections to PNG before submission so the painted PNG mask stays compatible with OpenAI masked edits
 - For direct OpenAI masked edits, the API still rejects uploads unless source and mask share the same MIME type and both are PNG or WEBP
 - Source and mask uploads are written to Cloudflare R2 for real when R2 env vars are configured
 - Valid jobs are persisted with Prisma after upload succeeds, and initial events are recorded
@@ -107,14 +108,14 @@ What does not work yet:
 
 - The Gemini implementation is still wired as a non-mask-capable provider slot, so masked submissions that explicitly target `provider=google` fail immediately instead of queueing a job that cannot succeed
 - The OpenRouter provider uses the documented `/api/v1/chat/completions` multimodal image path, not a dedicated mask-upload endpoint. That means the second uploaded image is sent as a mask reference image with prompt instructions to preserve unmasked regions, so exact binary-mask semantics still depend on the routed model
-- The current OpenAI worker does not transcode uploads. If the mask format is incompatible with OpenAI’s mask requirements, the API or provider preflight will fail explicitly rather than rewriting the files
+- The server-side OpenAI worker still does not transcode uploads. Non-homepage callers must send source and mask files in matching PNG or WEBP formats or the API/provider preflight will fail explicitly
 - No WebSocket or SSE push updates
 
 The app should fail explicitly for missing configuration or unimplemented integrations instead of pretending a job completed successfully.
 
 ## Runtime Check
 
-- `GET /api/runtime-check` reports whether the local runtime is ready for job listing, job creation, Trigger worker startup, and a full default OpenRouter job.
+- `GET /api/runtime-check` reports whether the local runtime is ready for job listing, job creation, Trigger worker startup, and a full default masked edit job using the configured default provider.
 - The homepage now surfaces the same runtime check so placeholder local config is obvious before you try to create a job or debug a failed refresh.
 - `npm run verify:runtime` imports the built server directly, requests `/`, `/api/runtime-check`, `/api/edit-jobs`, and only attempts a real multipart job submission when the preflight says creation is possible.
 - The runtime check flags the example `DATABASE_URL` placeholder before Prisma tries to connect, so local verification failures are easier to diagnose.

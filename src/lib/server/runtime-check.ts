@@ -17,7 +17,7 @@ const requiredR2Env = [
 
 const requiredTriggerDispatchEnv = ['TRIGGER_API_URL', 'TRIGGER_SECRET_KEY'] as const
 const requiredTriggerWorkerEnv = ['TRIGGER_PROJECT_REF'] as const
-const requiredDefaultProviderEnv = ['OPENROUTER_API_KEY'] as const
+const requiredDefaultProviderEnv = ['OPENAI_API_KEY'] as const
 
 type RuntimeSectionStatus = 'ready' | 'blocked'
 
@@ -139,7 +139,7 @@ export async function getRuntimeCheckReport() {
     storage.status === 'ready' &&
     triggerDispatch.status === 'ready'
   const canStartWorker = triggerWorker.status === 'ready'
-  const canCompleteDefaultOpenRouterJob =
+  const canCompleteDefaultMaskedEditJob =
     canCreateJob &&
     canStartWorker &&
     defaultProvider.status === 'ready'
@@ -173,7 +173,7 @@ export async function getRuntimeCheckReport() {
       canListJobs,
       canCreateJob,
       canStartWorker,
-      canCompleteDefaultOpenRouterJob,
+      canCompleteDefaultMaskedEditJob,
       blockers,
     },
   }

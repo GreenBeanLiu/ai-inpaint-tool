@@ -137,6 +137,62 @@ function getMaskDownloadFilename(sourceFile: File | null) {
   return `${safeBaseName}-mask.png`
 }
 
+function getPngFilename(filename: string) {
+  const baseName = stripExtension(filename).trim() || 'source'
+  return `${baseName}.png`
+}
+
+function sourceFileNeedsPngNormalization(file: File | null) {
+  return file?.type === 'image/jpeg' || file?.type === 'image/webp'
+}
+
+async function normalizeSourceFileForSubmission(file: File): Promise<File> {
+  if (!sourceFileNeedsPngNormalization(file)) {
+    return file
+  }
+
+  const objectUrl = URL.createObjectURL(file)
+
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const nextImage = new Image()
+      nextImage.onload = () => resolve(nextImage)
+      nextImage.onerror = () => reject(new Error('Failed to decode the selected source image for PNG normalization.'))
+      nextImage.src = objectUrl
+    })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+
+    const context = canvas.getContext('2d')
+
+    if (!context) {
+      throw new Error('Failed to prepare a browser canvas for PNG normalization.')
+    }
+
+    context.drawImage(image, 0, 0)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) => {
+        if (value) {
+          resolve(value)
+          return
+        }
+
+        reject(new Error('Failed to encode the selected source image as PNG.'))
+      }, 'image/png')
+    })
+
+    return new File([blob], getPngFilename(file.name), {
+      type: 'image/png',
+      lastModified: file.lastModified,
+    })
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
+
 function getRuntimeCreateStatusLabel(report: RuntimeCheckReport | null) {
   if (!report) {
     return 'Checking runtime'
@@ -301,7 +357,8 @@ function HomePage() {
 
     try {
       const formData = new FormData(event.currentTarget)
-      formData.set('image', sourceFile, sourceFile.name)
+      const sourceFileForSubmission = await normalizeSourceFileForSubmission(sourceFile)
+      formData.set('image', sourceFileForSubmission, sourceFileForSubmission.name)
       formData.set('mask', maskFile, maskFile.name)
       const response = await fetch('/api/edit-jobs', {
         method: 'POST',
@@ -434,7 +491,8 @@ function HomePage() {
                 <strong>Source image</strong>
               </div>
               <span className="muted">
-                PNG, JPEG, and WEBP are supported. Picking a file opens the painter immediately.
+                PNG, JPEG, and WEBP are supported. JPEG and WEBP are converted to PNG in the
+                browser before submission so the default OpenAI mask upload stays compatible.
               </span>
               <input
                 accept="image/png,image/jpeg,image/webp"
@@ -446,6 +504,12 @@ function HomePage() {
               <span className="upload-summary">
                 {getSelectedFileSummary(sourceFile, sourceDimensions) ?? 'No image selected yet.'}
               </span>
+              {sourceFile && sourceFileNeedsPngNormalization(sourceFile) ? (
+                <div className="inline-validation-note">
+                  This source will be uploaded as {getPngFilename(sourceFile.name)} so it matches
+                  the painter&apos;s PNG mask for the default OpenAI submission path.
+                </div>
+              ) : null}
               {!sourceFile ? (
                 <div className="inline-validation-note">A source image is required before you can paint or submit.</div>
               ) : null}
@@ -608,7 +672,8 @@ function HomePage() {
               <strong>Submit job</strong>
             </div>
             <p className="muted">
-              This keeps the same source upload, mask export, and job creation flow.
+              This submits the default direct OpenAI masked edit path. OpenRouter remains available
+              as an optional provider on the API path, and Gemini still rejects masked jobs.
             </p>
             <div className="submit-validation-list">
               {submitValidationItems.map((item) => (

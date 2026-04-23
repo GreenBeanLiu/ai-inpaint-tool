@@ -27,7 +27,7 @@ function getRuntimeSummary(report: RuntimeCheckReport | null) {
     return 'Checking whether the local runtime is ready to list jobs, create edits, and finish the default masked editing path.'
   }
 
-  if (report.overall.canCompleteDefaultOpenRouterJob) {
+  if (report.overall.canCompleteDefaultMaskedEditJob) {
     return 'This setup can list jobs, accept uploads, dispatch the worker, and finish the default masked edit path.'
   }
 
@@ -126,9 +126,9 @@ export function RuntimeStatusPanel({
               <strong>Start worker</strong>
               <span>{getCapabilityStatus(report.overall.canStartWorker)}</span>
             </article>
-            <article className={getCapabilityClassName(report.overall.canCompleteDefaultOpenRouterJob)}>
+            <article className={getCapabilityClassName(report.overall.canCompleteDefaultMaskedEditJob)}>
               <strong>Finish default run</strong>
-              <span>{getCapabilityStatus(report.overall.canCompleteDefaultOpenRouterJob)}</span>
+              <span>{getCapabilityStatus(report.overall.canCompleteDefaultMaskedEditJob)}</span>
             </article>
           </div>
 

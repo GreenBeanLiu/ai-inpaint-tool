@@ -62,7 +62,7 @@ export interface RuntimeCheckOverall {
   canListJobs: boolean
   canCreateJob: boolean
   canStartWorker: boolean
-  canCompleteDefaultOpenRouterJob: boolean
+  canCompleteDefaultMaskedEditJob: boolean
   blockers: string[]
 }
 
