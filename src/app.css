@@ -421,6 +421,12 @@ input[type='range'] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.provider-selector-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .simple-home-secondary {
   grid-template-columns: minmax(320px, 0.72fr) minmax(0, 1.28fr);
   align-items: start;

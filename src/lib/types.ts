@@ -66,6 +66,12 @@ export interface RuntimeCheckOverall {
   blockers: string[]
 }
 
+export interface SelectableMaskedProvider {
+  id: string
+  displayName: string
+  defaultModel: string
+}
+
 export interface RuntimeCheckReport {
   checkedAt: string
   app: RuntimeSection
@@ -75,6 +81,7 @@ export interface RuntimeCheckReport {
   triggerWorker: RuntimeSection
   defaultProvider: RuntimeSection
   overall: RuntimeCheckOverall
+  selectableMaskedProviders: SelectableMaskedProvider[]
 }
 
 export interface CreateEditJobInput {

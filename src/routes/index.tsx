@@ -239,6 +239,8 @@ function HomePage() {
   const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragError, setDragError] = useState<string | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState<string>('')
+  const [selectedModel, setSelectedModel] = useState<string>('')
   const sourcePreviewUrl = useObjectUrl(sourceFile)
   const maskPreviewUrl = useObjectUrl(maskFile)
   const sourceDimensions = useImageDimensions(sourcePreviewUrl)
@@ -312,6 +314,14 @@ function HomePage() {
     setDragError(null)
     setIsMaskEditorOpen(Boolean(file))
   }, [])
+
+  const handleProviderChange = useCallback((providerId: string) => {
+    setSelectedProvider(providerId)
+    const provider = runtimeReport?.selectableMaskedProviders.find((p) => p.id === providerId)
+    if (provider) {
+      setSelectedModel(provider.defaultModel)
+    }
+  }, [runtimeReport])
 
   const isValidImageType = useCallback((file: File) => {
     return (
@@ -423,6 +433,14 @@ function HomePage() {
       const sourceFileForSubmission = await normalizeSourceFileForSubmission(sourceFile)
       formData.set('image', sourceFileForSubmission, sourceFileForSubmission.name)
       formData.set('mask', maskFile, maskFile.name)
+
+      if (selectedProvider) {
+        formData.set('provider', selectedProvider)
+      }
+      if (selectedModel) {
+        formData.set('model', selectedModel)
+      }
+
       const response = await fetch('/api/edit-jobs', {
         method: 'POST',
         body: formData,
@@ -458,6 +476,8 @@ function HomePage() {
       setSourceFile(null)
       setMaskFile(null)
       setDraftMaskFile(null)
+      setSelectedProvider('')
+      setSelectedModel('')
       setIsMaskEditorOpen(false)
       event.currentTarget.reset()
       await navigate({
@@ -483,6 +503,7 @@ function HomePage() {
       null
   const activeJobs = jobs.filter((job) => job.status === 'queued' || job.status === 'processing')
   const sourceMaskDimensionMismatch = haveImageDimensionsMismatch(sourceDimensions, maskDimensions)
+  const showProviderSelector = (runtimeReport?.selectableMaskedProviders.length ?? 0) >= 2
   const submitValidationItems = [
     {
       label: sourceFile ? 'Source image selected' : 'Choose a source image',
@@ -739,14 +760,54 @@ function HomePage() {
             </div>
           </label>
 
+          {showProviderSelector ? (
+            <section className="stack">
+              <div className="upload-card-header">
+                <span className="step-badge">Optional</span>
+                <strong>Provider and model</strong>
+              </div>
+              <p className="muted">
+                Multiple masked-inpainting providers are configured. Choose a provider and model, or leave blank for the default OpenAI path.
+              </p>
+              <div className="provider-selector-grid">
+                <label className="field">
+                  <span className="mask-editor-control-label">Provider</span>
+                  <select
+                    name="provider"
+                    value={selectedProvider}
+                    onChange={(event) => handleProviderChange(event.target.value)}
+                  >
+                    <option value="">Default (OpenAI)</option>
+                    {runtimeReport?.selectableMaskedProviders.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span className="mask-editor-control-label">Model</span>
+                  <input
+                    name="model"
+                    type="text"
+                    value={selectedModel}
+                    onChange={(event) => setSelectedModel(event.target.value)}
+                    placeholder="Leave blank for provider default"
+                  />
+                </label>
+              </div>
+            </section>
+          ) : null}
+
           <section className="submit-card">
             <div className="upload-card-header">
               <span className="step-badge">Step 4</span>
               <strong>Submit job</strong>
             </div>
             <p className="muted">
-              This submits the default direct OpenAI masked edit path. OpenRouter remains available
-              as an optional provider on the API path, and Gemini still rejects masked jobs.
+              {showProviderSelector
+                ? 'Multiple masked-inpainting providers are available. Choose a provider above or submit with the default OpenAI path.'
+                : 'Submits the default OpenAI masked edit path. Other providers remain unavailable or unconfigured for masked inpainting.'}
             </p>
             <div className="submit-validation-list">
               {submitValidationItems.map((item) => (

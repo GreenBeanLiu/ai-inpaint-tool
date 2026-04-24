@@ -6,6 +6,7 @@ import {
   DEFAULT_IMAGE_EDIT_PROVIDER,
   resolveImageEditModel,
 } from '@/lib/server/image-models/defaults'
+import { listImageEditProviders } from '@/lib/server/image-models'
 
 const requiredR2Env = [
   'R2_ACCOUNT_ID',
@@ -18,6 +19,12 @@ const requiredR2Env = [
 const requiredTriggerDispatchEnv = ['TRIGGER_API_URL', 'TRIGGER_SECRET_KEY'] as const
 const requiredTriggerWorkerEnv = ['TRIGGER_PROJECT_REF'] as const
 const requiredDefaultProviderEnv = ['OPENAI_API_KEY'] as const
+
+const providerRequiredEnv: Record<string, readonly string[]> = {
+  openai: ['OPENAI_API_KEY'],
+  openrouter: ['OPENROUTER_API_KEY'],
+  google: ['GOOGLE_GENERATIVE_AI_API_KEY', 'GOOGLE_IMAGE_MODEL'],
+}
 
 type RuntimeSectionStatus = 'ready' | 'blocked'
 
@@ -154,6 +161,24 @@ export async function getRuntimeCheckReport() {
     .filter((section) => section.status === 'blocked')
     .map((section) => section.summary)
 
+  const allProviders = listImageEditProviders()
+  const selectableMaskedProviders = allProviders
+    .filter((provider) => {
+      if (!provider.supportsMaskInpainting) {
+        return false
+      }
+      const requiredEnv = providerRequiredEnv[provider.id]
+      if (!requiredEnv) {
+        return false
+      }
+      return getMissingEnv(requiredEnv).length === 0
+    })
+    .map((provider) => ({
+      id: provider.id,
+      displayName: provider.displayName,
+      defaultModel: resolveImageEditModel(provider.id, undefined),
+    }))
+
   return {
     checkedAt: new Date().toISOString(),
     app: createReadySection('The built TanStack Start server can boot and answer in-process requests.'),
@@ -176,5 +201,6 @@ export async function getRuntimeCheckReport() {
       canCompleteDefaultMaskedEditJob,
       blockers,
     },
+    selectableMaskedProviders,
   }
 }
