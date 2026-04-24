@@ -78,7 +78,7 @@ So the next phase should focus on turning this from an honest backend scaffold i
 - [x] Disable submit when source/mask are missing
 - [x] Add inline validation messages before submit
 - [x] Warn when source and mask dimensions do not match if detectable client-side
-- [ ] Add provider/model selectors only when multiple providers are truly supported
+- [x] Add provider/model selectors only when multiple providers are truly supported
 - [x] Add drag-and-drop upload support
 - [x] Add prompt examples for common inpainting tasks
 

@@ -275,6 +275,29 @@ function HomePage() {
     }
   }
 
+  useEffect(() => {
+    const selectableProviders = runtimeReport?.selectableMaskedProviders ?? []
+
+    if (selectableProviders.length < 2) {
+      if (selectedProvider || selectedModel) {
+        setSelectedProvider('')
+        setSelectedModel('')
+      }
+      return
+    }
+
+    if (!selectedProvider) {
+      return
+    }
+
+    const providerStillAvailable = selectableProviders.some((provider) => provider.id === selectedProvider)
+
+    if (!providerStillAvailable) {
+      setSelectedProvider('')
+      setSelectedModel('')
+    }
+  }, [runtimeReport, selectedModel, selectedProvider])
+
   async function refreshJobs() {
     const response = await fetch('/api/edit-jobs')
 
@@ -317,10 +340,20 @@ function HomePage() {
 
   const handleProviderChange = useCallback((providerId: string) => {
     setSelectedProvider(providerId)
+
+    if (!providerId) {
+      setSelectedModel('')
+      return
+    }
+
     const provider = runtimeReport?.selectableMaskedProviders.find((p) => p.id === providerId)
+
     if (provider) {
       setSelectedModel(provider.defaultModel)
+      return
     }
+
+    setSelectedModel('')
   }, [runtimeReport])
 
   const isValidImageType = useCallback((file: File) => {
