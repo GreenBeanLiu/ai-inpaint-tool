@@ -72,7 +72,7 @@ So the next phase should focus on turning this from an honest backend scaffold i
 - [x] Auto-refresh when job is `queued` or `processing`
 - [x] Stop refreshing once job is `succeeded` or `failed`
 - [ ] Later, add SSE or WebSocket push updates
-- [ ] Surface lifecycle events in a more readable timeline UI
+- [x] Surface lifecycle events in a more readable timeline UI
 
 ### 6. Improve form UX
 - [x] Disable submit when source/mask are missing

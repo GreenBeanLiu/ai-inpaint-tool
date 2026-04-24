@@ -63,6 +63,66 @@ function formatStatusLabel(status: EditJobStatus) {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
+type TimelineEventTone = 'queued' | 'active' | 'success' | 'failure'
+
+interface TimelineEventPresentation {
+  label: string
+  badge: string
+  description: string
+  tone: TimelineEventTone
+}
+
+const timelineEventPresentation: Record<string, TimelineEventPresentation> = {
+  'job.accepted': {
+    label: 'Job accepted',
+    badge: 'Accepted',
+    description: 'Source image and mask were uploaded successfully, and the job was created.',
+    tone: 'queued',
+  },
+  'job.dispatched': {
+    label: 'Background run queued',
+    badge: 'Queued',
+    description: 'The app handed the job to the background runner and is waiting for worker pickup.',
+    tone: 'queued',
+  },
+  'job.processing': {
+    label: 'Worker picked up the job',
+    badge: 'Processing',
+    description: 'A worker claimed the run and started the image-edit pipeline.',
+    tone: 'active',
+  },
+  'job.provider_started': {
+    label: 'Provider request started',
+    badge: 'Generating',
+    description: 'The edit request was sent to the configured image provider.',
+    tone: 'active',
+  },
+  'job.result_uploading': {
+    label: 'Uploading generated result',
+    badge: 'Uploading',
+    description: 'The provider returned an image, and the app is storing the output asset.',
+    tone: 'active',
+  },
+  'job.succeeded': {
+    label: 'Job completed',
+    badge: 'Succeeded',
+    description: 'The final image was stored successfully and the run reached a terminal success state.',
+    tone: 'success',
+  },
+  'job.failed': {
+    label: 'Worker run failed',
+    badge: 'Failed',
+    description: 'The worker hit a processing error before a final result image could be stored.',
+    tone: 'failure',
+  },
+  'job.dispatch_failed': {
+    label: 'Dispatch failed',
+    badge: 'Dispatch failed',
+    description: 'The job record was created, but the app could not start the background run.',
+    tone: 'failure',
+  },
+}
+
 function getStatusPillClass(status: EditJobStatus) {
   switch (status) {
     case 'succeeded':
@@ -305,6 +365,31 @@ function renderJson(value: unknown) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
 
+function formatFallbackEventLabel(type: string) {
+  const normalized = type.startsWith('job.') ? type.slice(4) : type
+
+  return normalized
+    .split(/[._-]/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function getTimelineEventPresentation(event: EditJobEventRecord): TimelineEventPresentation {
+  const mapped = timelineEventPresentation[event.type]
+
+  if (mapped) {
+    return mapped
+  }
+
+  return {
+    label: formatFallbackEventLabel(event.type),
+    badge: 'Event',
+    description: event.message ?? 'Lifecycle event recorded.',
+    tone: 'active',
+  }
+}
+
 function JsonDisclosure({
   title,
   description,
@@ -341,6 +426,37 @@ function EventPayloadDisclosure({ event }: Readonly<{ event: EditJobEventRecord 
       title="Payload JSON"
       value={event.payloadJson}
     />
+  )
+}
+
+function TimelineEventRow({ event }: Readonly<{ event: EditJobEventRecord }>) {
+  const presentation = getTimelineEventPresentation(event)
+  const secondaryMessage =
+    event.message && event.message !== presentation.description ? event.message : null
+
+  return (
+    <article className={`event-item event-item-${presentation.tone}`}>
+      <div className="event-item-rail" aria-hidden="true">
+        <span className={`event-item-marker event-item-marker-${presentation.tone}`} />
+      </div>
+
+      <div className="event-item-card">
+        <div className="event-item-header">
+          <div className="event-item-heading">
+            <div className="event-item-meta">
+              <span className={`event-badge event-badge-${presentation.tone}`}>{presentation.badge}</span>
+              <span className="muted">{formatTimestamp(event.createdAt)}</span>
+            </div>
+            <strong className="event-item-title">{presentation.label}</strong>
+            <p className="event-item-description">{presentation.description}</p>
+          </div>
+          <code className="event-item-type code">{event.type}</code>
+        </div>
+
+        {secondaryMessage ? <p className="event-message">{secondaryMessage}</p> : null}
+        <EventPayloadDisclosure event={event} />
+      </div>
+    </article>
   )
 }
 
@@ -431,6 +547,9 @@ function EditorJobPage() {
   }
 
   const latestEvent = job.events[0] ?? null
+  const timelineEvents = [...job.events].sort(
+    (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+  )
   const autoRefresh = shouldAutoRefresh(job)
   const comparisonEmptyState = getComparisonEmptyState(job)
   const failureDiagnosticEvent = getFailureDiagnosticEvent(job)
@@ -725,26 +844,17 @@ function EditorJobPage() {
       <section className="panel stack">
         <div className="section-heading">
           <div className="section-heading-copy">
-            <div className="section-eyebrow">Event Log</div>
-            <h2 className="subsection-title">Timeline and payloads</h2>
+            <div className="section-eyebrow">Lifecycle</div>
+            <h2 className="subsection-title">Readable event timeline</h2>
           </div>
-          <span className="muted">Messages stay visible, while raw payload JSON is collapsible.</span>
+          <span className="muted">Each stage stays readable in plain language, with raw types and payload JSON kept secondary.</span>
         </div>
 
         <div className="event-list">
-          {job.events.length === 0 ? (
+          {timelineEvents.length === 0 ? (
             <div className="muted">No events recorded.</div>
           ) : (
-            job.events.map((event) => (
-              <article className="event-item" key={event.id}>
-                <div className="event-item-header">
-                  <strong>{event.type}</strong>
-                  <span className="muted">{formatTimestamp(event.createdAt)}</span>
-                </div>
-                {event.message ? <p className="event-message">{event.message}</p> : null}
-                <EventPayloadDisclosure event={event} />
-              </article>
-            ))
+            timelineEvents.map((event) => <TimelineEventRow event={event} key={event.id} />)
           )}
         </div>
       </section>
