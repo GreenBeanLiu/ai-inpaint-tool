@@ -461,6 +461,24 @@ input[type='range'] {
   background: var(--panel-soft);
 }
 
+.drop-zone {
+  transition: all 180ms ease-out;
+  cursor: pointer;
+}
+
+.drop-zone-active {
+  border-color: rgba(255, 143, 91, 0.42);
+  background: rgba(255, 143, 91, 0.12);
+  box-shadow: 0 0 0 4px rgba(255, 143, 91, 0.14);
+  transform: scale(1.01);
+}
+
+.drop-zone-invalid {
+  border-color: rgba(255, 111, 122, 0.38);
+  background: rgba(255, 111, 122, 0.12);
+  box-shadow: 0 0 0 4px rgba(255, 111, 122, 0.14);
+}
+
 .upload-card-header {
   display: flex;
   gap: 0.75rem;

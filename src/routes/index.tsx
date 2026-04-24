@@ -237,6 +237,8 @@ function HomePage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragError, setDragError] = useState<string | null>(null)
   const sourcePreviewUrl = useObjectUrl(sourceFile)
   const maskPreviewUrl = useObjectUrl(maskFile)
   const sourceDimensions = useImageDimensions(sourcePreviewUrl)
@@ -307,8 +309,69 @@ function HomePage() {
     setMaskFile(null)
     setDraftMaskFile(null)
     setMessage(null)
+    setDragError(null)
     setIsMaskEditorOpen(Boolean(file))
   }, [])
+
+  const isValidImageType = useCallback((file: File) => {
+    return (
+      file.type === 'image/png' ||
+      file.type === 'image/jpeg' ||
+      file.type === 'image/webp'
+    )
+  }, [])
+
+  const handleDragEnter = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setIsDragOver(true)
+    setDragError(null)
+  }, [])
+
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
+
+  const handleDragLeave = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setIsDragOver(false)
+    setDragError(null)
+  }, [])
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLLabelElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      setIsDragOver(false)
+
+      const files = event.dataTransfer.files
+
+      if (files.length === 0) {
+        setDragError('No file was dropped.')
+        return
+      }
+
+      if (files.length > 1) {
+        setDragError('Only one image can be uploaded at a time.')
+        return
+      }
+
+      const file = files[0]
+
+      if (!isValidImageType(file)) {
+        setDragError(
+          `${file.type || 'This file type'} is not supported. Please drop a PNG, JPEG, or WEBP image.`,
+        )
+        return
+      }
+
+      setDragError(null)
+      handleSourceFileChange(file)
+    },
+    [handleSourceFileChange, isValidImageType],
+  )
 
   const handleDraftMaskChange = useCallback((file: File | null) => {
     setDraftMaskFile(file)
@@ -485,14 +548,21 @@ function HomePage() {
 
         <form className="intake-form simplified-intake-form" onSubmit={handleSubmit}>
           <div className="simple-intake-grid">
-            <label className="upload-card field">
+            <label
+              className={`upload-card field drop-zone ${isDragOver ? 'drop-zone-active' : ''} ${dragError ? 'drop-zone-invalid' : ''}`}
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <div className="upload-card-header">
                 <span className="step-badge">Step 1</span>
                 <strong>Source image</strong>
               </div>
               <span className="muted">
-                PNG, JPEG, and WEBP are supported. JPEG and WEBP are converted to PNG in the
-                browser before submission so the default OpenAI mask upload stays compatible.
+                PNG, JPEG, and WEBP are supported. Drag and drop an image here or click to browse.
+                JPEG and WEBP are converted to PNG in the browser before submission so the default
+                OpenAI mask upload stays compatible.
               </span>
               <input
                 accept="image/png,image/jpeg,image/webp"
@@ -504,13 +574,16 @@ function HomePage() {
               <span className="upload-summary">
                 {getSelectedFileSummary(sourceFile, sourceDimensions) ?? 'No image selected yet.'}
               </span>
+              {dragError ? (
+                <div className="inline-validation-note inline-validation-note-error">{dragError}</div>
+              ) : null}
               {sourceFile && sourceFileNeedsPngNormalization(sourceFile) ? (
                 <div className="inline-validation-note">
                   This source will be uploaded as {getPngFilename(sourceFile.name)} so it matches
                   the painter&apos;s PNG mask for the default OpenAI submission path.
                 </div>
               ) : null}
-              {!sourceFile ? (
+              {!sourceFile && !dragError ? (
                 <div className="inline-validation-note">A source image is required before you can paint or submit.</div>
               ) : null}
             </label>
