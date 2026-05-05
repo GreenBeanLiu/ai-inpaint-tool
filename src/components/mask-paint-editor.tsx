@@ -47,11 +47,11 @@ interface StrokeHistoryEntry {
 
 type HistoryEntry = StrokeHistoryEntry
 
-const DEFAULT_BRUSH_SIZE = 40
+const DEFAULT_BRUSH_SIZE = 16
 const MIN_BRUSH_SIZE = 8
 const MAX_BRUSH_SIZE = 160
 const BRUSH_STEP = 4
-const BRUSH_PRESETS = [16, DEFAULT_BRUSH_SIZE, 88] as const
+const BRUSH_PRESETS = [8, DEFAULT_BRUSH_SIZE, 40] as const
 const MASK_OVERLAY_OPACITY = 0.44
 const PAINT_COLOR = '#d54837'
 const MAX_HISTORY_ENTRIES = 80
@@ -204,6 +204,20 @@ function getRelativeStagePoint(
     x: (relativeX / bounds.width) * stageSize.width,
     y: (relativeY / bounds.height) * stageSize.height,
   }
+}
+
+function isPointWithinElementBounds(
+  element: HTMLElement,
+  event: { clientX: number; clientY: number },
+) {
+  const bounds = element.getBoundingClientRect()
+
+  return (
+    event.clientX >= bounds.left &&
+    event.clientX <= bounds.right &&
+    event.clientY >= bounds.top &&
+    event.clientY <= bounds.bottom
+  )
 }
 
 function drawBrushDot(
@@ -723,6 +737,16 @@ export function MaskPaintEditor({
           workspaceSize,
         ),
       )
+
+      return
+    }
+
+    if (stage && !isPointWithinElementBounds(stage, event)) {
+      setHoverPoint(null)
+
+      if (activeStrokePointerIdRef.current === event.pointerId) {
+        void finishInteraction(event)
+      }
 
       return
     }
