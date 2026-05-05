@@ -927,7 +927,7 @@ export function MaskPaintEditor({
   const viewHint = zoom > MIN_ZOOM ? `${visibleCoverage}% visible` : 'Fitted'
   const interactionHint =
     zoom > MIN_ZOOM ? 'Drag to pan' : 'Hold space to pan'
-  const isCompactTopbar = workspaceSize.width > 0 && workspaceSize.width < 1180
+  const isCompactTopbar = workspaceSize.width > 0 && workspaceSize.width < 1320
   const isBrushExpanded = !isCompactTopbar || expandedPanel === 'brush'
   const isViewExpanded = !isCompactTopbar || expandedPanel === 'view'
 
