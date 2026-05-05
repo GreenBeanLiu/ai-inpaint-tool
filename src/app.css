@@ -1299,6 +1299,20 @@ input[type='range'] {
   align-items: flex-start;
 }
 
+.mask-editor-topbar[data-compact='true'] .mask-editor-toolgroup {
+  pointer-events: none;
+}
+
+.mask-editor-topbar[data-compact='true'] .mask-editor-tool-summary-toggle,
+.mask-editor-topbar[data-compact='true'] .mask-editor-primary-tools,
+.mask-editor-topbar[data-compact='true'] .mask-editor-utility-tools,
+.mask-editor-topbar[data-compact='true'] .mask-editor-size-control,
+.mask-editor-topbar[data-compact='true'] .segmented-controls,
+.mask-editor-topbar[data-compact='true'] .button,
+.mask-editor-topbar[data-compact='true'] input {
+  pointer-events: auto;
+}
+
 .mask-editor-topbar[data-compact='true'] .mask-editor-toolgroup-primary {
   flex: 0 1 400px;
   max-width: min(100%, 400px);
@@ -1546,6 +1560,7 @@ input[type='range'] {
 }
 
 .mask-editor-image,
+.mask-editor-canvas,
 .comparison-image {
   width: 100%;
   height: 100%;
