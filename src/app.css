@@ -1315,10 +1315,14 @@ input[type='range'] {
 }
 
 .mask-editor-topbar[data-compact='true'] .mask-editor-size-control {
-  grid-template-columns: 1fr;
-  gap: 0.28rem;
-  padding: 0.28rem 0.36rem;
-  border-radius: 12px;
+  grid-template-columns: auto minmax(120px, 1fr);
+  gap: 0.35rem;
+  padding: 0.22rem 0.28rem;
+  border-radius: 10px;
+}
+
+.mask-editor-topbar[data-compact='true'] .mask-editor-size-control-compact {
+  align-items: center;
 }
 
 .mask-editor-topbar[data-compact='true'] .mask-editor-range-control {
@@ -1337,11 +1341,16 @@ input[type='range'] {
   font-size: 0.78rem;
 }
 
+.mask-editor-size-readout-compact {
+  min-width: 2.8rem;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
 .mask-editor-topbar[data-compact='true'] .mask-editor-presets {
   gap: 0.3rem;
 }
 
-.mask-editor-topbar[data-compact='true'] .mask-editor-presets .button,
 .mask-editor-topbar[data-compact='true'] .segmented-controls .button {
   min-height: 1.85rem;
   padding: 0.34rem 0.56rem;

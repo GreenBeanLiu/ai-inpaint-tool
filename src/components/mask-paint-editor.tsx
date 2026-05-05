@@ -1022,14 +1022,22 @@ export function MaskPaintEditor({
                           </button>
                         </div>
 
-                        <label className="mask-editor-size-control">
-                          <span className="mask-editor-control-copy">
-                            <span className="mask-editor-control-label">Brush size</span>
-                            <span className="mask-editor-size-readout">
+                        <label
+                          className={`mask-editor-size-control${isCompactTopbar ? ' mask-editor-size-control-compact' : ''}`}
+                        >
+                          {isCompactTopbar ? (
+                            <span className="mask-editor-size-readout mask-editor-size-readout-compact">
                               <strong>{brushSize}px</strong>
-                              <span className="muted">{interactionHint}</span>
                             </span>
-                          </span>
+                          ) : (
+                            <span className="mask-editor-control-copy">
+                              <span className="mask-editor-control-label">Brush size</span>
+                              <span className="mask-editor-size-readout">
+                                <strong>{brushSize}px</strong>
+                                <span className="muted">{interactionHint}</span>
+                              </span>
+                            </span>
+                          )}
                           <div className="mask-editor-range-control">
                             <button
                               aria-label="Decrease brush size"
@@ -1063,19 +1071,21 @@ export function MaskPaintEditor({
                           </div>
                         </label>
 
-                        <div className="mask-editor-presets" role="group" aria-label="Brush presets">
-                          {BRUSH_PRESETS.map((preset) => (
-                            <button
-                              aria-pressed={brushSize === preset}
-                              className="button button-secondary"
-                              key={preset}
-                              type="button"
-                              onClick={() => setBrushSize(preset)}
-                            >
-                              {preset}px
-                            </button>
-                          ))}
-                        </div>
+                        {!isCompactTopbar ? (
+                          <div className="mask-editor-presets" role="group" aria-label="Brush presets">
+                            {BRUSH_PRESETS.map((preset) => (
+                              <button
+                                aria-pressed={brushSize === preset}
+                                className="button button-secondary"
+                                key={preset}
+                                type="button"
+                                onClick={() => setBrushSize(preset)}
+                              >
+                                {preset}px
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                       ) : null}
                     </div>
