@@ -1300,8 +1300,8 @@ input[type='range'] {
 }
 
 .mask-editor-topbar[data-compact='true'] .mask-editor-toolgroup-primary {
-  flex: 0 1 460px;
-  max-width: min(100%, 460px);
+  flex: 0 1 400px;
+  max-width: min(100%, 400px);
 }
 
 .mask-editor-topbar[data-compact='true'] .mask-editor-toolgroup-utility {
