@@ -311,6 +311,7 @@ export function MaskPaintEditor({
   const [isPainting, setIsPainting] = useState(false)
   const [isPanning, setIsPanning] = useState(false)
   const [isNavigatingMinimap, setIsNavigatingMinimap] = useState(false)
+  const [expandedPanel, setExpandedPanel] = useState<'brush' | 'view' | null>('brush')
   const stageSize = getFittedStageSize(dimensions, workspaceSize, FIT_VIEW_PADDING)
   const minimapSize = getFittedStageSize(dimensions, {
     width: MINIMAP_MAX_SIZE,
@@ -351,6 +352,7 @@ export function MaskPaintEditor({
     setIsPanning(false)
     setIsNavigatingMinimap(false)
     setIsSpacePressed(false)
+    setExpandedPanel('brush')
     baseMaskImageRef.current = null
   }, [sourceUrl, initialMaskUrl])
 
@@ -925,6 +927,20 @@ export function MaskPaintEditor({
   const viewHint = zoom > MIN_ZOOM ? `${visibleCoverage}% visible` : 'Fitted'
   const interactionHint =
     zoom > MIN_ZOOM ? 'Drag to pan' : 'Hold space to pan'
+  const isCompactTopbar = workspaceSize.width > 0 && workspaceSize.width < 1180
+  const isBrushExpanded = !isCompactTopbar || expandedPanel === 'brush'
+  const isViewExpanded = !isCompactTopbar || expandedPanel === 'view'
+
+  useEffect(() => {
+    if (!isCompactTopbar && expandedPanel !== null) {
+      setExpandedPanel(null)
+      return
+    }
+
+    if (isCompactTopbar && expandedPanel === null) {
+      setExpandedPanel('brush')
+    }
+  }, [expandedPanel, isCompactTopbar])
 
   return (
     <section
@@ -945,9 +961,25 @@ export function MaskPaintEditor({
             <div className="mask-editor-workspace-viewport" ref={workspaceViewportRef}>
               {stageSize ? (
                 <>
-                  <div className="mask-editor-topbar">
-                    <div className="mask-editor-toolgroup mask-editor-toolgroup-primary">
-                      <div className="mask-editor-tool-summary mask-editor-tool-summary-compact">
+                  <div className="mask-editor-topbar" data-compact={isCompactTopbar ? 'true' : 'false'}>
+                    <div
+                      className="mask-editor-toolgroup mask-editor-toolgroup-primary"
+                      data-collapsed={!isBrushExpanded ? 'true' : 'false'}
+                    >
+                      <button
+                        aria-expanded={isBrushExpanded}
+                        className="mask-editor-tool-summary mask-editor-tool-summary-compact mask-editor-tool-summary-toggle"
+                        type="button"
+                        onClick={() => {
+                          if (!isCompactTopbar) {
+                            return
+                          }
+
+                          setExpandedPanel((current) =>
+                            current === 'brush' ? null : 'brush',
+                          )
+                        }}
+                      >
                         <span className="mask-editor-control-label">Brush</span>
                         <div className="mask-editor-inline-stat">
                           <span
@@ -961,9 +993,15 @@ export function MaskPaintEditor({
                           />
                           <strong>{brushModeLabel}</strong>
                           <span className="muted">{brushSize}px</span>
+                          {isCompactTopbar ? (
+                            <span className="mask-editor-collapse-indicator">
+                              {isBrushExpanded ? 'Hide' : 'Show'}
+                            </span>
+                          ) : null}
                         </div>
-                      </div>
+                      </button>
 
+                      {isBrushExpanded ? (
                       <div className="mask-editor-primary-tools">
                         <div className="segmented-controls" role="group" aria-label="Mask tool">
                           <button
@@ -1039,17 +1077,40 @@ export function MaskPaintEditor({
                           ))}
                         </div>
                       </div>
+                      ) : null}
                     </div>
 
-                    <div className="mask-editor-toolgroup mask-editor-toolgroup-utility">
-                      <div className="mask-editor-tool-summary mask-editor-tool-summary-compact">
+                    <div
+                      className="mask-editor-toolgroup mask-editor-toolgroup-utility"
+                      data-collapsed={!isViewExpanded ? 'true' : 'false'}
+                    >
+                      <button
+                        aria-expanded={isViewExpanded}
+                        className="mask-editor-tool-summary mask-editor-tool-summary-compact mask-editor-tool-summary-toggle"
+                        type="button"
+                        onClick={() => {
+                          if (!isCompactTopbar) {
+                            return
+                          }
+
+                          setExpandedPanel((current) =>
+                            current === 'view' ? null : 'view',
+                          )
+                        }}
+                      >
                         <span className="mask-editor-control-label">View</span>
                         <div className="mask-editor-inline-stat">
                           <strong>{Math.round(zoom * 100)}%</strong>
                           <span className="muted">{viewHint}</span>
+                          {isCompactTopbar ? (
+                            <span className="mask-editor-collapse-indicator">
+                              {isViewExpanded ? 'Hide' : 'Show'}
+                            </span>
+                          ) : null}
                         </div>
-                      </div>
+                      </button>
 
+                      {isViewExpanded ? (
                       <div className="mask-editor-utility-tools">
                         <div className="segmented-controls" role="group" aria-label="History controls">
                           <button
@@ -1099,6 +1160,7 @@ export function MaskPaintEditor({
                           </button>
                         </div>
                       </div>
+                      ) : null}
                     </div>
                   </div>
 

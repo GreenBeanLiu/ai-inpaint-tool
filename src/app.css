@@ -1220,11 +1220,11 @@ input[type='range'] {
 }
 
 .mask-editor-toolgroup {
-  flex: 1 1 360px;
+  flex: 1 1 300px;
   align-items: stretch;
-  gap: 0.55rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 18px;
+  gap: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(7, 16, 30, 0.58);
   backdrop-filter: blur(18px);
@@ -1235,12 +1235,13 @@ input[type='range'] {
 }
 
 .mask-editor-toolgroup-primary {
-  flex: 1 1 680px;
-  max-width: min(100%, 720px);
+  flex: 1 1 580px;
+  max-width: min(100%, 620px);
 }
 
 .mask-editor-toolgroup-utility {
-  flex: 0 1 340px;
+  flex: 0 1 250px;
+  max-width: 250px;
   margin-left: auto;
 }
 
@@ -1261,6 +1262,15 @@ input[type='range'] {
   flex: 0 0 auto;
 }
 
+.mask-editor-tool-summary-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .mask-editor-inline-stat {
   display: inline-flex;
   align-items: center;
@@ -1269,29 +1279,47 @@ input[type='range'] {
   white-space: nowrap;
 }
 
+.mask-editor-collapse-indicator {
+  margin-left: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
 .mask-editor-topbar {
   position: absolute;
-  inset: 0.65rem 0.65rem auto 0.65rem;
+  inset: 0.5rem 0.5rem auto 0.5rem;
   z-index: 3;
-  gap: 0.55rem;
+  gap: 0.45rem;
   justify-content: space-between;
   align-items: flex-start;
   pointer-events: none;
 }
 
+.mask-editor-topbar[data-compact='true'] {
+  align-items: flex-start;
+}
+
+.mask-editor-toolgroup[data-collapsed='true'] {
+  flex: 0 1 auto;
+}
+
+.mask-editor-toolgroup[data-collapsed='true'] .mask-editor-tool-summary-toggle {
+  width: auto;
+}
+
 .mask-editor-primary-tools,
 .mask-editor-utility-tools {
   align-items: stretch;
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
 .mask-editor-size-control {
   display: grid;
-  grid-template-columns: auto minmax(200px, 240px);
-  gap: 0.6rem;
+  grid-template-columns: auto minmax(160px, 190px);
+  gap: 0.45rem;
   align-items: center;
-  padding: 0.42rem 0.55rem;
-  border-radius: 16px;
+  padding: 0.34rem 0.45rem;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.035);
 }
@@ -1299,8 +1327,8 @@ input[type='range'] {
 .mask-editor-size-readout {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.92rem;
+  gap: 0.35rem;
+  font-size: 0.84rem;
 }
 
 .mask-editor-range-control {
@@ -1329,8 +1357,9 @@ input[type='range'] {
 }
 
 .mask-editor-range-control .button {
-  min-width: 2.35rem;
-  padding-inline: 0.6rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding-inline: 0.45rem;
 }
 
 .mask-editor-keycap {
@@ -1351,7 +1380,7 @@ input[type='range'] {
 .mask-editor-control-label {
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 0.66rem;
+  font-size: 0.6rem;
   color: #ffb493;
 }
 
@@ -1517,8 +1546,9 @@ input[type='range'] {
 .brush-size-stepper .button,
 .mask-editor-presets .button,
 .mask-editor-layer-controls .button {
-  min-height: 2.3rem;
-  padding: 0.55rem 0.8rem;
+  min-height: 2rem;
+  padding: 0.42rem 0.68rem;
+  font-size: 0.9rem;
 }
 
 .brush-size-stepper {
