@@ -282,6 +282,7 @@ export function MaskPaintEditor({
   const sectionRef = useRef<HTMLElement | null>(null)
   const workspaceViewportRef = useRef<HTMLDivElement | null>(null)
   const minimapRef = useRef<HTMLDivElement | null>(null)
+  const stageRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const activeStrokePointerIdRef = useRef<number | null>(null)
   const activePanPointerIdRef = useRef<number | null>(null)
@@ -646,6 +647,7 @@ export function MaskPaintEditor({
 
   function handlePointerDown(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
+    const stage = stageRef.current
 
     if (!canvas || !dimensions) {
       return
@@ -676,7 +678,9 @@ export function MaskPaintEditor({
 
     event.preventDefault()
 
-    const point = getCanvasPoint(canvas, event)
+    const point = stage
+      ? getRelativeStagePoint(stage, event, dimensions)
+      : getCanvasPoint(canvas, event)
     setHoverPoint(point)
     activeStrokePointerIdRef.current = event.pointerId
     strokePointsRef.current = [point]
@@ -691,8 +695,9 @@ export function MaskPaintEditor({
 
   function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
     const canvas = canvasRef.current
+    const stage = stageRef.current
 
-    if (!canvas) {
+    if (!canvas || !dimensions) {
       return
     }
 
@@ -722,7 +727,9 @@ export function MaskPaintEditor({
       return
     }
 
-    const point = getCanvasPoint(canvas, event)
+    const point = stage
+      ? getRelativeStagePoint(stage, event, dimensions)
+      : getCanvasPoint(canvas, event)
     setHoverPoint(point)
 
     if (
@@ -1176,6 +1183,7 @@ export function MaskPaintEditor({
 
                   <div
                     className="mask-editor-stage"
+                    ref={stageRef}
                     data-painting={isPainting ? 'true' : undefined}
                     data-panning={isPanning ? 'true' : undefined}
                     style={{
