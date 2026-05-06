@@ -24,11 +24,11 @@ const runtimeSections: Array<{
 
 function getRuntimeSummary(report: RuntimeCheckReport | null) {
   if (!report) {
-    return 'Checking whether the local runtime is ready to list jobs, create edits, and finish the default masked editing path.'
+    return 'Checking whether the local runtime is ready to list jobs, create edits, and finish the default region-editing path.'
   }
 
   if (report.overall.canCompleteDefaultMaskedEditJob) {
-    return 'This setup can list jobs, accept uploads, dispatch the worker, and finish the default masked edit path.'
+    return 'This setup can list jobs, accept uploads, dispatch the worker, and finish the default region-edit path.'
   }
 
   return 'The app is reachable, but at least one required runtime dependency is still blocking full edit execution.'

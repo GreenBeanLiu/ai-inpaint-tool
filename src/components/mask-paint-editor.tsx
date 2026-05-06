@@ -953,7 +953,7 @@ export function MaskPaintEditor({
   const showBrushPreview =
     Boolean(stageSize && dimensions && hoverPoint && !isPanning && !isSpacePressed)
   const canResetView = zoom > MIN_ZOOM || panOffset.x !== 0 || panOffset.y !== 0
-  const brushModeLabel = brushMode === 'paint' ? 'Paint' : 'Erase'
+  const brushModeLabel = brushMode === 'paint' ? 'Mark' : 'Erase'
   const brushPreviewChipSize = clampNumber(Math.round(brushSize * 0.3), 10, 34)
   const viewHint = zoom > MIN_ZOOM ? `${visibleCoverage}% visible` : 'Fitted'
   const interactionHint =
@@ -1011,7 +1011,7 @@ export function MaskPaintEditor({
                           )
                         }}
                       >
-                        <span className="mask-editor-control-label">Brush</span>
+                        <span className="mask-editor-control-label">Selection</span>
                         <div className="mask-editor-inline-stat">
                           <span
                             aria-hidden="true"
@@ -1034,14 +1034,14 @@ export function MaskPaintEditor({
 
                       {isBrushExpanded ? (
                       <div className="mask-editor-primary-tools">
-                        <div className="segmented-controls" role="group" aria-label="Mask tool">
+                        <div className="segmented-controls" role="group" aria-label="Edit region tool">
                           <button
                             aria-pressed={brushMode === 'paint'}
                             className="button button-secondary"
                             type="button"
                             onClick={() => setBrushMode('paint')}
                           >
-                            Paint <span className="mask-editor-keycap">B</span>
+                            Mark <span className="mask-editor-keycap">B</span>
                           </button>
                           <button
                             aria-pressed={brushMode === 'erase'}
@@ -1062,7 +1062,7 @@ export function MaskPaintEditor({
                             </span>
                           ) : (
                             <span className="mask-editor-control-copy">
-                              <span className="mask-editor-control-label">Brush size</span>
+                              <span className="mask-editor-control-label">Selection size</span>
                               <span className="mask-editor-size-readout">
                                 <strong>{brushSize}px</strong>
                                 <span className="muted">{interactionHint}</span>
@@ -1071,7 +1071,7 @@ export function MaskPaintEditor({
                           )}
                           <div className="mask-editor-range-control">
                             <button
-                              aria-label="Decrease brush size"
+                              aria-label="Decrease selection size"
                               className="button button-secondary"
                               disabled={brushSize <= MIN_BRUSH_SIZE}
                               type="button"
@@ -1080,7 +1080,7 @@ export function MaskPaintEditor({
                               -
                             </button>
                             <input
-                              aria-label="Brush size"
+                              aria-label="Selection size"
                               max={MAX_BRUSH_SIZE}
                               min={MIN_BRUSH_SIZE}
                               step={BRUSH_STEP}
@@ -1091,7 +1091,7 @@ export function MaskPaintEditor({
                               }
                             />
                             <button
-                              aria-label="Increase brush size"
+                              aria-label="Increase selection size"
                               className="button button-secondary"
                               disabled={brushSize >= MAX_BRUSH_SIZE}
                               type="button"
@@ -1103,7 +1103,7 @@ export function MaskPaintEditor({
                         </label>
 
                         {!isCompactTopbar ? (
-                          <div className="mask-editor-presets" role="group" aria-label="Brush presets">
+                          <div className="mask-editor-presets" role="group" aria-label="Selection size presets">
                             {BRUSH_PRESETS.map((preset) => (
                               <button
                                 aria-pressed={brushSize === preset}
@@ -1217,7 +1217,7 @@ export function MaskPaintEditor({
                     }}
                   >
                     <img
-                      alt="Source image for mask painting"
+                      alt="Source image for edit region selection"
                       className="mask-editor-image"
                       src={sourceUrl}
                     />
@@ -1292,7 +1292,7 @@ export function MaskPaintEditor({
 
                   <div className="mask-editor-stage-status">
                     <span className={`status-pill ${hasPaint ? 'status-pill-ready' : ''}`}>
-                      {hasPaint ? 'Mask ready' : 'Mask empty'}
+                      {hasPaint ? 'Edit region ready' : 'No edit region yet'}
                     </span>
                     <span>
                       {brushModeLabel} · {brushSize}px
@@ -1308,7 +1308,7 @@ export function MaskPaintEditor({
           <div className="image-preview-empty muted">Loading source image editor...</div>
         ) : (
           <div className="image-preview-empty muted">
-            Choose a source image to unlock the in-browser mask editor.
+            Choose a source image to unlock the in-browser edit region selector.
           </div>
         )}
 

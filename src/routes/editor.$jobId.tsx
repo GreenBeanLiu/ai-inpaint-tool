@@ -76,7 +76,7 @@ const timelineEventPresentation: Record<string, TimelineEventPresentation> = {
   'job.accepted': {
     label: 'Job accepted',
     badge: 'Accepted',
-    description: 'Source image and mask were uploaded successfully, and the job was created.',
+    description: 'Source image and edit region were uploaded successfully, and the job was created.',
     tone: 'queued',
   },
   'job.dispatched': {
@@ -215,7 +215,7 @@ function getHeroCopy(job: EditJobDetail) {
       kicker: 'Result Ready',
       title: 'Edited output ready for review.',
       description:
-        'Compare the final image against the original, keep the mask close for context, and export the delivered asset directly from this page.',
+        'Compare the final image against the original, keep the selected region close for context, and export the delivered asset directly from this page.',
     }
   }
 
@@ -224,7 +224,7 @@ function getHeroCopy(job: EditJobDetail) {
       kicker: 'Run Needs Attention',
       title: 'This edit stopped before producing a final output.',
       description:
-        'The source image and mask are preserved so the failed run stays inspectable, while the raw diagnostics stay tucked behind lightweight disclosures.',
+        'The source image and edit region are preserved so the failed run stays inspectable, while the raw diagnostics stay tucked behind lightweight disclosures.',
     }
   }
 
@@ -241,7 +241,7 @@ function getHeroCopy(job: EditJobDetail) {
     kicker: 'Queued For Processing',
     title: 'The edit is staged and waiting for worker pickup.',
     description:
-      'Use the source and mask previews to verify the setup now. The result area will update in place once processing begins and the output is stored.',
+      'Use the source and edit-region previews to verify the setup now. The result area will update in place once processing begins and the output is stored.',
   }
 }
 
@@ -568,8 +568,8 @@ function EditorJobPage() {
   const maskActions = getAssetActions(
     job.maskImageUrl,
     {
-      open: 'Open mask',
-      download: 'Download mask',
+      open: 'Open region file',
+      download: 'Download region file',
     },
     getAssetDownloadName(job, 'mask', {
       url: job.maskImageUrl,
@@ -724,7 +724,7 @@ function EditorJobPage() {
         <div className="section-heading">
           <div className="section-heading-copy">
             <div className="section-eyebrow">Assets</div>
-            <h2 className="subsection-title">Source, mask, and delivered output</h2>
+            <h2 className="subsection-title">Source, edit region, and delivered output</h2>
           </div>
           <span className="muted">The result stays primary while the original inputs remain close for reference.</span>
         </div>
@@ -770,14 +770,14 @@ function EditorJobPage() {
               actions={maskActions}
               alt={`Mask image for job ${job.id}`}
               badge="Edit region"
-              eyebrow="Mask"
+              eyebrow="Edit Region"
               href={job.maskImageUrl}
               src={job.maskImageUrl}
               summary={formatImageSummary([
                 job.width && job.height ? `${job.width} x ${job.height}` : null,
-                'Uploaded mask',
+                'Uploaded edit region',
               ])}
-              title="Mask image"
+              title="Edit region image"
               variant="supporting"
             />
           </div>

@@ -124,7 +124,7 @@ function getMaskPreviewSummary(file: File | null, dimensions?: ImageDimensions |
     return null
   }
 
-  return `${getSelectedFileSummary(file, dimensions)} • Transparent areas are editable`
+  return `${getSelectedFileSummary(file, dimensions)} • Transparent areas mark the preserved image`
 }
 
 function stripExtension(filename: string) {
@@ -543,13 +543,13 @@ function HomePage() {
       ready: Boolean(sourceFile),
     },
     {
-      label: maskFile ? 'Mask confirmed' : 'Paint and confirm a mask',
+      label: maskFile ? 'Edit region confirmed' : 'Select and confirm an edit region',
       ready: Boolean(maskFile),
     },
     {
       label: sourceMaskDimensionMismatch
-        ? 'Source and mask dimensions do not match'
-        : 'Source and mask dimensions match',
+        ? 'Source image and edit region dimensions do not match'
+        : 'Source image and edit region dimensions match',
       ready: !sourceMaskDimensionMismatch,
       pending: Boolean(sourceFile && maskFile && (!sourceDimensions || !maskDimensions)),
     },
@@ -562,11 +562,11 @@ function HomePage() {
   const submitBlockedReason =
     createJobBlockedReason ??
     (sourceMaskDimensionMismatch
-      ? 'Fix the source and mask dimensions before submitting.'
+      ? 'Fix the source image and edit region dimensions before submitting.'
       : !sourceFile
         ? 'Choose a source image'
         : !maskFile
-          ? 'Paint a mask to continue'
+          ? 'Select an edit region to continue'
           : null)
 
   return (
@@ -576,10 +576,10 @@ function HomePage() {
           <div className="section-heading">
             <div className="section-heading-copy">
               <div className="section-eyebrow">New edit</div>
-              <h1 className="section-title">Upload, paint, submit.</h1>
+              <h1 className="section-title">Upload, mark the edit area, submit.</h1>
               <p className="section-description muted">
-                Choose a source image and the painter opens immediately. Confirm the mask, add an
-                optional prompt, then submit through the same job pipeline.
+                Choose a source image, mark the area you want to change, add an optional prompt,
+                then submit through the same job pipeline.
               </p>
             </div>
             <span className={`hero-runtime-chip ${getRuntimeCreateTone(runtimeReport)}`}>
@@ -594,7 +594,7 @@ function HomePage() {
               {sourceFile ? `Source: ${sourceFile.name}` : 'Source image not selected'}
             </span>
             <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
-              {maskFile ? 'Mask confirmed' : 'Mask required'}
+              {maskFile ? 'Edit region confirmed' : 'Edit region required'}
             </span>
             <span className="inline-status is-pending">{activeJobs.length} active jobs</span>
           </div>
@@ -634,22 +634,22 @@ function HomePage() {
               {sourceFile && sourceFileNeedsPngNormalization(sourceFile) ? (
                 <div className="inline-validation-note">
                   This source will be uploaded as {getPngFilename(sourceFile.name)} so it matches
-                  the painter&apos;s PNG mask for the default OpenAI submission path.
+                  the region selector&apos;s PNG edit-region file for the default OpenAI submission path.
                 </div>
               ) : null}
               {!sourceFile && !dragError ? (
-                <div className="inline-validation-note">A source image is required before you can paint or submit.</div>
+                <div className="inline-validation-note">A source image is required before you can select an edit region or submit.</div>
               ) : null}
             </label>
 
             <section className="mask-launch-card simplified-mask-card">
               <div className="upload-card-header">
                 <span className="step-badge">Step 2</span>
-                <strong>Mask painter</strong>
+                <strong>Edit region selector</strong>
               </div>
               <p className="muted">
-                Reopen the painter any time. Cancel keeps the last confirmed mask. Confirm replaces
-                the mask file that will be uploaded.
+                Reopen the selector any time. Cancel keeps the last confirmed edit region. Confirm replaces
+                the region file that will be uploaded.
               </p>
               <div className="actions">
                 <button
@@ -658,25 +658,25 @@ function HomePage() {
                   type="button"
                   onClick={handleOpenMaskEditor}
                 >
-                  {maskFile ? 'Reopen painter' : 'Open painter'}
+                  {maskFile ? 'Refine selection' : 'Select edit region'}
                 </button>
                 <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
-                  {maskFile ? 'Mask confirmed' : 'Paint a mask'}
+                  {maskFile ? 'Edit region confirmed' : 'Select edit region'}
                 </span>
               </div>
               <span className="upload-summary">
                 {getMaskPreviewSummary(maskFile, maskDimensions) ??
-                  'No confirmed mask yet. Paint at least one editable region.'}
+                  'No confirmed edit region yet. Mark at least one area to change.'}
               </span>
               {sourceFile && !maskFile ? (
                 <div className="inline-validation-note">
-                  Open the painter and confirm a mask before creating the job.
+                  Open the selector and confirm an edit region before creating the job.
                 </div>
               ) : null}
               {sourceMaskDimensionMismatch ? (
                 <div className="inline-validation-note inline-validation-note-error">
-                  The current mask dimensions do not match the source image. Reopen the painter and
-                  regenerate the mask from this source.
+                  The current edit region dimensions do not match the source image. Reopen the selector and
+                  regenerate the region file from this source.
                 </div>
               ) : null}
             </section>
@@ -686,7 +686,7 @@ function HomePage() {
             <div className="section-heading">
               <div className="section-heading-copy">
                 <div className="section-eyebrow">Preview</div>
-                <h2 className="subsection-title">Source and mask</h2>
+                <h2 className="subsection-title">Source image and edit region</h2>
               </div>
               <button
                 className="button button-secondary"
@@ -694,7 +694,7 @@ function HomePage() {
                 type="button"
                 onClick={handleOpenMaskEditor}
               >
-                {maskFile ? 'Refine mask' : 'Paint mask'}
+                {maskFile ? 'Refine region' : 'Select region'}
               </button>
             </div>
             <div className="preview-grid">
@@ -722,27 +722,27 @@ function HomePage() {
                 title="Source preview"
               />
               <ImagePreviewCard
-                alt="Generated mask preview"
+                alt="Generated edit region preview"
                 actions={
                   maskPreviewUrl
                     ? [
                         {
                           href: maskPreviewUrl,
-                          label: 'Open mask',
+                          label: 'Open region file',
                           tone: 'secondary',
                         },
                         {
                           href: maskPreviewUrl,
-                          label: 'Download mask',
+                          label: 'Download region file',
                           download: getMaskDownloadFilename(sourceFile),
                         },
                       ]
                     : undefined
                 }
-                emptyLabel="Paint the editable region to generate a mask preview."
+                emptyLabel="Mark the area you want to change to generate an edit-region preview."
                 src={maskPreviewUrl}
                 summary={getMaskPreviewSummary(maskFile, maskDimensions)}
-                title="Confirmed mask"
+                title="Confirmed edit region"
               />
             </div>
           </section>
@@ -757,7 +757,7 @@ function HomePage() {
               name="prompt"
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe the new content, cleanup, or replacement you want inside the mask."
+              placeholder="Describe the new content, cleanup, or replacement you want inside the selected area."
             />
             <div className="prompt-example-block">
               <div className="prompt-example-header">
@@ -800,7 +800,7 @@ function HomePage() {
                 <strong>Provider and model</strong>
               </div>
               <p className="muted">
-                Multiple masked-inpainting providers are configured. Choose a provider and model, or leave blank for the default OpenAI path.
+                Multiple region-editing providers are configured. Choose a provider and model, or leave blank for the default OpenAI path.
               </p>
               <div className="provider-selector-grid">
                 <label className="field">
@@ -839,8 +839,8 @@ function HomePage() {
             </div>
             <p className="muted">
               {showProviderSelector
-                ? 'Multiple masked-inpainting providers are available. Choose a provider above or submit with the default OpenAI path.'
-                : 'Submits the default OpenAI masked edit path. Other providers remain unavailable or unconfigured for masked inpainting.'}
+                ? 'Multiple region-editing providers are available. Choose a provider above or submit with the default OpenAI path.'
+                : 'Submits the default OpenAI region-edit path. Other providers remain unavailable or unconfigured for this workflow.'}
             </p>
             <div className="submit-validation-list">
               {submitValidationItems.map((item) => (
@@ -867,11 +867,11 @@ function HomePage() {
                   : createJobBlockedReason
                     ? 'Creation blocked by runtime config'
                     : sourceMaskDimensionMismatch
-                      ? 'Fix source and mask dimensions'
+                      ? 'Fix source and region dimensions'
                       : !sourceFile
                         ? 'Choose a source image'
                         : !maskFile
-                          ? 'Paint a mask to continue'
+                          ? 'Select an edit region to continue'
                           : 'Create queued job'}
               </button>
               <span className="muted">
@@ -882,7 +882,7 @@ function HomePage() {
               {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
               {sourceMaskDimensionMismatch ? (
                 <div className="alert alert-error">
-                  Source image and mask must have identical dimensions before submission.
+                  Source image and edit region must have identical dimensions before submission.
                 </div>
               ) : null}
               {message ? <div className="alert">{message}</div> : null}
@@ -952,7 +952,7 @@ function HomePage() {
         headerActions={
           <div className="canvas-editor-header-actions">
             <span className={`status-pill ${draftMaskFile ? 'status-pill-ready' : ''}`}>
-              {draftMaskFile ? 'Draft ready' : 'Mask required'}
+              {draftMaskFile ? 'Draft selection ready' : 'Edit region required'}
             </span>
             <button className="button button-secondary" type="button" onClick={handleCancelMaskEditor}>
               Cancel
@@ -963,13 +963,13 @@ function HomePage() {
               type="button"
               onClick={handleConfirmMaskEditor}
             >
-              Use mask
+              Use selection
             </button>
           </div>
         }
         open={isMaskEditorOpen}
         showCloseButton={false}
-        title="Mask painter"
+        title="Edit region selector"
         onClose={handleCancelMaskEditor}
       >
         <MaskPaintEditor

@@ -21,11 +21,11 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'AI Inpaint Studio',
+        title: 'AI Edit Studio',
       },
       {
         name: 'description',
-        content: 'Local AI image inpainting workspace with masked editing job intake and runtime visibility.',
+        content: 'Local AI image editing workspace with region selection, job intake, and runtime visibility.',
       },
     ],
   }),
@@ -41,8 +41,8 @@ function RootComponent() {
             <div className="app-brand-row">
               <div aria-hidden="true" className="app-brand-mark" />
               <div>
-                <div className="app-brand">AI Inpaint Studio</div>
-                <div className="muted">Mask-based image editing workspace</div>
+                <div className="app-brand">AI Edit Studio</div>
+                <div className="muted">Region-based image editing workspace</div>
               </div>
             </div>
             <nav className="actions app-nav">
