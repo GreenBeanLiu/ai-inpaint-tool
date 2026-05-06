@@ -421,6 +421,8 @@ export function MaskPaintEditor({
   const baseMaskImageRef = useRef<HTMLImageElement | null>(null)
   const historyEntriesRef = useRef<HistoryEntry[]>([])
   const historyIndexRef = useRef(0)
+  const livePreviewTimeoutRef = useRef<number | null>(null)
+  const maskOutputRequestIdRef = useRef(0)
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE)
   const [brushMode, setBrushMode] = useState<BrushMode>('paint')
   const [dimensions, setDimensions] = useState<ImageDimensions | null>(null)
@@ -463,7 +465,14 @@ export function MaskPaintEditor({
     panPointerOriginRef.current = null
     historyEntriesRef.current = []
     historyIndexRef.current = 0
+    maskOutputRequestIdRef.current = 0
     shouldAutoFitViewportRef.current = true
+
+    if (livePreviewTimeoutRef.current != null) {
+      window.clearTimeout(livePreviewTimeoutRef.current)
+      livePreviewTimeoutRef.current = null
+    }
+
     setBrushMode('paint')
     setDimensions(null)
     setHasPaint(false)
@@ -479,6 +488,14 @@ export function MaskPaintEditor({
     setExpandedPanel('brush')
     baseMaskImageRef.current = null
   }, [sourceUrl, initialMaskUrl])
+
+  useEffect(() => {
+    return () => {
+      if (livePreviewTimeoutRef.current != null) {
+        window.clearTimeout(livePreviewTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     const viewport = workspaceViewportRef.current
@@ -636,11 +653,25 @@ export function MaskPaintEditor({
     }
   }
 
-  async function syncMaskOutput(version: number, emitMaskChange: boolean) {
+  async function syncMaskOutput(
+    version: number,
+    emitMaskChange: boolean,
+    transientEntry?: HistoryEntry | null,
+  ) {
+    const requestId = emitMaskChange ? maskOutputRequestIdRef.current + 1 : maskOutputRequestIdRef.current
+
+    if (emitMaskChange) {
+      maskOutputRequestIdRef.current = requestId
+    }
+
     const canvas = canvasRef.current
 
     if (!canvas || !dimensions || !stageSize) {
-      if (emitMaskChange) {
+      if (
+        emitMaskChange &&
+        version === sourceVersionRef.current &&
+        requestId === maskOutputRequestIdRef.current
+      ) {
         onMaskChange(null)
       }
       return
@@ -652,7 +683,11 @@ export function MaskPaintEditor({
     setHasPaint(nextHasPaint)
 
     if (!nextHasPaint) {
-      if (emitMaskChange) {
+      if (
+        emitMaskChange &&
+        version === sourceVersionRef.current &&
+        requestId === maskOutputRequestIdRef.current
+      ) {
         onMaskChange(null)
       }
       return
@@ -680,6 +715,10 @@ export function MaskPaintEditor({
       renderStrokeEntryOnExport(exportContext, entry)
     }
 
+    if (transientEntry) {
+      renderStrokeEntryOnExport(exportContext, transientEntry)
+    }
+
     const blob = await new Promise<Blob | null>((resolve) => {
       exportCanvas.toBlob(resolve, 'image/png')
     })
@@ -688,7 +727,7 @@ export function MaskPaintEditor({
       throw new Error('Failed to export the painted mask')
     }
 
-    if (version !== sourceVersionRef.current) {
+    if (version !== sourceVersionRef.current || requestId !== maskOutputRequestIdRef.current) {
       return
     }
 
@@ -697,6 +736,36 @@ export function MaskPaintEditor({
         type: 'image/png',
       }),
     )
+  }
+
+  function getCurrentStrokeEntry(): StrokeHistoryEntry | null {
+    if (strokePointsRef.current.length === 0) {
+      return null
+    }
+
+    return {
+      type: 'stroke',
+      brushMode: strokeBrushModeRef.current,
+      brushSize: strokeBrushSizeRef.current,
+      points: [...strokePointsRef.current],
+    }
+  }
+
+  function scheduleLiveMaskPreview() {
+    if (livePreviewTimeoutRef.current != null) {
+      return
+    }
+
+    livePreviewTimeoutRef.current = window.setTimeout(() => {
+      livePreviewTimeoutRef.current = null
+      const currentStrokeEntry = getCurrentStrokeEntry()
+
+      if (!currentStrokeEntry) {
+        return
+      }
+
+      void syncMaskOutput(sourceVersionRef.current, true, currentStrokeEntry)
+    }, 80)
   }
 
   async function applyHistoryState(options?: { emitMaskChange?: boolean }) {
@@ -831,6 +900,7 @@ export function MaskPaintEditor({
     setHasPaint(true)
     setIsPainting(true)
     drawDisplayBrushDot(context, displayPoint, brushSize, strokeBrushModeRef.current)
+    scheduleLiveMaskPreview()
     canvas.setPointerCapture(event.pointerId)
   }
 
@@ -907,6 +977,7 @@ export function MaskPaintEditor({
       strokeBrushModeRef.current,
     )
     strokePointsRef.current = [...strokePointsRef.current, imagePoint]
+    scheduleLiveMaskPreview()
   }
 
   function releaseCanvasPointer(event: PointerEvent<HTMLCanvasElement>) {
@@ -937,6 +1008,11 @@ export function MaskPaintEditor({
 
     event.preventDefault()
     releaseCanvasPointer(event)
+
+    if (livePreviewTimeoutRef.current != null) {
+      window.clearTimeout(livePreviewTimeoutRef.current)
+      livePreviewTimeoutRef.current = null
+    }
 
     const points = strokePointsRef.current
     activeStrokePointerIdRef.current = null
