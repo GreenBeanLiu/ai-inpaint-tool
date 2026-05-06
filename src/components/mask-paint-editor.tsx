@@ -206,6 +206,52 @@ function getRelativeStagePoint(
   }
 }
 
+function getDisplayScale(dimensions: ImageDimensions, stageSize: ImageDimensions) {
+  return stageSize.width / dimensions.width
+}
+
+function displayPointToImagePoint(
+  point: Point,
+  dimensions: ImageDimensions,
+  stageSize: ImageDimensions,
+): Point {
+  const scale = getDisplayScale(dimensions, stageSize)
+
+  return {
+    x: point.x / scale,
+    y: point.y / scale,
+  }
+}
+
+function imagePointToDisplayPoint(
+  point: Point,
+  dimensions: ImageDimensions,
+  stageSize: ImageDimensions,
+): Point {
+  const scale = getDisplayScale(dimensions, stageSize)
+
+  return {
+    x: point.x * scale,
+    y: point.y * scale,
+  }
+}
+
+function displayBrushSizeToImageBrushSize(
+  brushSize: number,
+  dimensions: ImageDimensions,
+  stageSize: ImageDimensions,
+) {
+  return brushSize / getDisplayScale(dimensions, stageSize)
+}
+
+function imageBrushSizeToDisplayBrushSize(
+  brushSize: number,
+  dimensions: ImageDimensions,
+  stageSize: ImageDimensions,
+) {
+  return brushSize * getDisplayScale(dimensions, stageSize)
+}
+
 function isPointWithinElementBounds(
   element: HTMLElement,
   event: { clientX: number; clientY: number },
@@ -220,7 +266,7 @@ function isPointWithinElementBounds(
   )
 }
 
-function drawBrushDot(
+function drawDisplayBrushDot(
   context: CanvasRenderingContext2D,
   point: Point,
   brushSize: number,
@@ -235,7 +281,7 @@ function drawBrushDot(
   context.restore()
 }
 
-function drawBrushStroke(
+function drawDisplayBrushStroke(
   context: CanvasRenderingContext2D,
   start: Point,
   end: Point,
@@ -255,17 +301,80 @@ function drawBrushStroke(
   context.restore()
 }
 
-function renderStrokeEntry(context: CanvasRenderingContext2D, entry: StrokeHistoryEntry) {
+function drawExportBrushDot(
+  context: CanvasRenderingContext2D,
+  point: Point,
+  brushSize: number,
+  brushMode: BrushMode,
+) {
+  context.save()
+  context.globalCompositeOperation = brushMode === 'erase' ? 'source-over' : 'destination-out'
+  context.fillStyle = brushMode === 'erase' ? '#ffffff' : '#000000'
+  context.beginPath()
+  context.arc(point.x, point.y, brushSize / 2, 0, Math.PI * 2)
+  context.fill()
+  context.restore()
+}
+
+function drawExportBrushStroke(
+  context: CanvasRenderingContext2D,
+  start: Point,
+  end: Point,
+  brushSize: number,
+  brushMode: BrushMode,
+) {
+  context.save()
+  context.globalCompositeOperation = brushMode === 'erase' ? 'source-over' : 'destination-out'
+  context.strokeStyle = brushMode === 'erase' ? '#ffffff' : '#000000'
+  context.lineCap = 'round'
+  context.lineJoin = 'round'
+  context.lineWidth = brushSize
+  context.beginPath()
+  context.moveTo(start.x, start.y)
+  context.lineTo(end.x, end.y)
+  context.stroke()
+  context.restore()
+}
+
+function renderStrokeEntryOnDisplay(
+  context: CanvasRenderingContext2D,
+  entry: StrokeHistoryEntry,
+  dimensions: ImageDimensions,
+  stageSize: ImageDimensions,
+) {
   const [firstPoint] = entry.points
 
   if (!firstPoint) {
     return
   }
 
-  drawBrushDot(context, firstPoint, entry.brushSize, entry.brushMode)
+  const firstDisplayPoint = imagePointToDisplayPoint(firstPoint, dimensions, stageSize)
+  const displayBrushSize = imageBrushSizeToDisplayBrushSize(entry.brushSize, dimensions, stageSize)
+
+  drawDisplayBrushDot(context, firstDisplayPoint, displayBrushSize, entry.brushMode)
 
   for (let index = 1; index < entry.points.length; index += 1) {
-    drawBrushStroke(
+    drawDisplayBrushStroke(
+      context,
+      imagePointToDisplayPoint(entry.points[index - 1], dimensions, stageSize),
+      imagePointToDisplayPoint(entry.points[index], dimensions, stageSize),
+      displayBrushSize,
+      entry.brushMode,
+    )
+  }
+}
+
+function renderStrokeEntryOnExport(context: CanvasRenderingContext2D, entry: StrokeHistoryEntry) {
+  const [firstPoint] = entry.points
+
+  if (!firstPoint) {
+    return
+  }
+
+  drawExportBrushDot(context, firstPoint, entry.brushSize, entry.brushMode)
+
+  for (let index = 1; index < entry.points.length; index += 1) {
+    drawExportBrushStroke(
       context,
       entry.points[index - 1],
       entry.points[index],
@@ -426,12 +535,12 @@ export function MaskPaintEditor({
   useEffect(() => {
     const canvas = canvasRef.current
 
-    if (!canvas || !dimensions) {
+    if (!canvas || !dimensions || !stageSize) {
       return
     }
 
-    canvas.width = dimensions.width
-    canvas.height = dimensions.height
+    canvas.width = stageSize.width
+    canvas.height = stageSize.height
 
     const context = canvas.getContext('2d')
 
@@ -440,7 +549,8 @@ export function MaskPaintEditor({
     }
 
     context.clearRect(0, 0, canvas.width, canvas.height)
-  }, [dimensions])
+    redrawCanvasFromHistory()
+  }, [dimensions, stageSize])
 
   useEffect(() => {
     const version = sourceVersionRef.current
@@ -492,10 +602,23 @@ export function MaskPaintEditor({
     context.restore()
   }
 
+  function renderBaseMaskOnExport(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement) {
+    const baseMaskImage = baseMaskImageRef.current
+
+    if (!baseMaskImage) {
+      return
+    }
+
+    context.save()
+    context.globalCompositeOperation = 'source-over'
+    context.drawImage(baseMaskImage, 0, 0, canvas.width, canvas.height)
+    context.restore()
+  }
+
   function redrawCanvasFromHistory() {
     const canvas = canvasRef.current
 
-    if (!canvas) {
+    if (!canvas || !dimensions || !stageSize) {
       return
     }
 
@@ -509,14 +632,14 @@ export function MaskPaintEditor({
     renderBaseMask(context, canvas)
 
     for (const entry of historyEntriesRef.current.slice(0, historyIndexRef.current)) {
-      renderStrokeEntry(context, entry)
+      renderStrokeEntryOnDisplay(context, entry, dimensions, stageSize)
     }
   }
 
   async function syncMaskOutput(version: number, emitMaskChange: boolean) {
     const canvas = canvasRef.current
 
-    if (!canvas || !dimensions) {
+    if (!canvas || !dimensions || !stageSize) {
       if (emitMaskChange) {
         onMaskChange(null)
       }
@@ -551,8 +674,11 @@ export function MaskPaintEditor({
 
     exportContext.fillStyle = '#ffffff'
     exportContext.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
-    exportContext.globalCompositeOperation = 'destination-out'
-    exportContext.drawImage(canvas, 0, 0)
+    renderBaseMaskOnExport(exportContext, exportCanvas)
+
+    for (const entry of historyEntriesRef.current.slice(0, historyIndexRef.current)) {
+      renderStrokeEntryOnExport(exportContext, entry)
+    }
 
     const blob = await new Promise<Blob | null>((resolve) => {
       exportCanvas.toBlob(resolve, 'image/png')
@@ -663,7 +789,7 @@ export function MaskPaintEditor({
     const canvas = canvasRef.current
     const stage = stageRef.current
 
-    if (!canvas || !dimensions) {
+    if (!canvas || !dimensions || !stageSize) {
       return
     }
 
@@ -692,18 +818,19 @@ export function MaskPaintEditor({
 
     event.preventDefault()
 
-    const point = stage
-      ? getRelativeStagePoint(stage, event, dimensions)
+    const displayPoint = stage
+      ? getRelativeStagePoint(stage, event, stageSize)
       : getCanvasPoint(canvas, event)
-    setHoverPoint(point)
+    const imagePoint = displayPointToImagePoint(displayPoint, dimensions, stageSize)
+    setHoverPoint(displayPoint)
     activeStrokePointerIdRef.current = event.pointerId
-    strokePointsRef.current = [point]
+    strokePointsRef.current = [imagePoint]
     strokeBrushModeRef.current = isSecondaryEraseStroke ? 'erase' : brushMode
-    strokeBrushSizeRef.current = brushSize
+    strokeBrushSizeRef.current = displayBrushSizeToImageBrushSize(brushSize, dimensions, stageSize)
     hasPaintRef.current = true
     setHasPaint(true)
     setIsPainting(true)
-    drawBrushDot(context, point, strokeBrushSizeRef.current, strokeBrushModeRef.current)
+    drawDisplayBrushDot(context, displayPoint, brushSize, strokeBrushModeRef.current)
     canvas.setPointerCapture(event.pointerId)
   }
 
@@ -711,14 +838,13 @@ export function MaskPaintEditor({
     const canvas = canvasRef.current
     const stage = stageRef.current
 
-    if (!canvas || !dimensions) {
+    if (!canvas || !dimensions || !stageSize) {
       return
     }
 
     if (
       activePanPointerIdRef.current === event.pointerId &&
-      panPointerOriginRef.current &&
-      stageSize
+      panPointerOriginRef.current
     ) {
       event.preventDefault()
       setHoverPoint(null)
@@ -751,10 +877,11 @@ export function MaskPaintEditor({
       return
     }
 
-    const point = stage
-      ? getRelativeStagePoint(stage, event, dimensions)
+    const displayPoint = stage
+      ? getRelativeStagePoint(stage, event, stageSize)
       : getCanvasPoint(canvas, event)
-    setHoverPoint(point)
+    const imagePoint = displayPointToImagePoint(displayPoint, dimensions, stageSize)
+    setHoverPoint(displayPoint)
 
     if (
       activeStrokePointerIdRef.current !== event.pointerId ||
@@ -772,14 +899,14 @@ export function MaskPaintEditor({
     event.preventDefault()
     const previousPoint = strokePointsRef.current[strokePointsRef.current.length - 1]
 
-    drawBrushStroke(
+    drawDisplayBrushStroke(
       context,
-      previousPoint,
-      point,
-      strokeBrushSizeRef.current,
+      imagePointToDisplayPoint(previousPoint, dimensions, stageSize),
+      displayPoint,
+      brushSize,
       strokeBrushModeRef.current,
     )
-    strokePointsRef.current = [...strokePointsRef.current, point]
+    strokePointsRef.current = [...strokePointsRef.current, imagePoint]
   }
 
   function releaseCanvasPointer(event: PointerEvent<HTMLCanvasElement>) {
@@ -948,8 +1075,7 @@ export function MaskPaintEditor({
           100,
         )
       : 100
-  const brushPreviewSize =
-    stageSize && dimensions ? Math.max(14, (brushSize / dimensions.width) * stageSize.width) : 0
+  const brushPreviewSize = brushSize
   const showBrushPreview =
     Boolean(stageSize && dimensions && hoverPoint && !isPanning && !isSpacePressed)
   const canResetView = zoom > MIN_ZOOM || panOffset.x !== 0 || panOffset.y !== 0
@@ -1244,8 +1370,8 @@ export function MaskPaintEditor({
                         data-mode={brushMode}
                         style={{
                           height: `${brushPreviewSize}px`,
-                          left: `${(hoverPoint.x / dimensions.width) * stageSize.width}px`,
-                          top: `${(hoverPoint.y / dimensions.height) * stageSize.height}px`,
+                          left: `${hoverPoint.x}px`,
+                          top: `${hoverPoint.y}px`,
                           width: `${brushPreviewSize}px`,
                         }}
                       />
