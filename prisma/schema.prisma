@@ -28,8 +28,8 @@ model EditJob {
   width           Int?
   height          Int?
   fileSize        Int?
-  provider        String          @default("openai")
-  model           String          @default("gpt-image-1")
+  provider        String          @default("tikhub")
+  model           String          @default("gpt-image-2")
   errorCode       String?
   errorMessage    String?
   processingMs    Int?

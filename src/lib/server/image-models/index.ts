@@ -5,6 +5,7 @@ import {
 } from '@/lib/server/image-models/providers/gemini'
 import { createOpenAiImageEditProvider } from '@/lib/server/image-models/providers/openai'
 import { createOpenRouterImageEditProvider } from '@/lib/server/image-models/providers/openrouter'
+import { createTikhubImageEditProvider } from '@/lib/server/image-models/providers/tikhub'
 import type {
   ImageEditInput,
   ImageEditProvider,
@@ -16,6 +17,7 @@ const providerFactories = {
   google: () => createGeminiImageEditProvider(),
   openai: () => createOpenAiImageEditProvider(),
   openrouter: () => createOpenRouterImageEditProvider(),
+  tikhub: () => createTikhubImageEditProvider(),
 } satisfies Record<string, () => ImageEditProvider>
 
 export type SupportedImageEditProviderId = keyof typeof providerFactories

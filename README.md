@@ -8,7 +8,7 @@ Incremental TanStack Start + Prisma scaffold for an AI image inpainting workflow
 - Prisma with PostgreSQL
 - `POST /api/edit-jobs` intake that validates multipart uploads, stores uploaded assets in R2, creates jobs in Prisma, and attempts Trigger dispatch
 - Real Cloudflare R2 S3-compatible upload/download helpers with explicit configuration failures
-- Real Trigger task project shape plus a provider-adapter worker path with real OpenRouter and OpenAI masked image edit integrations
+- Real Trigger task project shape plus a provider-adapter worker path with Tikhub, OpenRouter, and OpenAI masked image edit integrations
 
 ## Setup
 
@@ -66,7 +66,16 @@ OPENROUTER_API_KEY=""
 OPENROUTER_IMAGE_MODEL="openai/gpt-5-image-mini"
 ```
 
-Default direct OpenAI image editing worker:
+Default Tikhub image editing worker:
+
+```dotenv
+TIKHUB_API_KEY=""
+TIKHUB_API_BASE_URL="https://ai.tikhub.io/v1"
+TIKHUB_IMAGE_EDIT_PATH="/images/edits"
+TIKHUB_IMAGE_MODEL="gpt-image-2"
+```
+
+Optional direct OpenAI image editing worker:
 
 ```dotenv
 OPENAI_API_KEY=""
@@ -92,7 +101,7 @@ What works now:
 - Homepage form submits multipart job intake to `POST /api/edit-jobs`
 - The API requires `multipart/form-data` with `image`, `mask`, and optional `prompt`, `provider`, `model` fields
 - Input is validated with Zod plus file checks for presence, MIME type, size, and matching image dimensions
-- The default masked inpainting path now targets direct OpenAI with provider/model defaults of `openai` and `gpt-image-1`
+- The default masked inpainting path now targets Tikhub with provider/model defaults of `tikhub` and `gpt-image-2`
 - For OpenRouter masked edits, the API accepts PNG, JPEG, or WEBP source uploads and requires a PNG or WEBP mask upload because the adapter sends both images through OpenRouter chat-completions image inputs instead of a dedicated binary mask field
 - The default homepage flow now normalizes JPEG and WEBP source selections to PNG before submission so the painted PNG mask stays compatible with OpenAI masked edits
 - For direct OpenAI masked edits, the API still rejects uploads unless source and mask share the same MIME type and both are PNG or WEBP
@@ -127,5 +136,6 @@ The app should fail explicitly for missing configuration or unimplemented integr
 - The Trigger task id used by the backend is `edit-image`, and the registered worker queue name is `edit-jobs`.
 - Result asset URLs come from `R2_PUBLIC_BASE_URL`, while R2 upload/download uses the S3-compatible endpoint derived from `R2_ACCOUNT_ID`.
 - OpenRouter’s current image generation docs route image editing through `POST /api/v1/chat/completions` with multimodal `messages` and `modalities` that include `image`. This repo uses that path for `provider=openrouter`, sending the source image and mask image as separate inputs and surfacing upstream failures instead of fabricating a result.
-- OpenAI’s current image editing docs show masked edits on `POST /v1/images/edits` with the source image, a separate mask, and a prompt. This repo preserves that path for `provider=openai`.
+- Tikhub is wired as the default masked editing gateway through an OpenAI-compatible images edit request path, configurable with `TIKHUB_API_BASE_URL` and `TIKHUB_IMAGE_EDIT_PATH`.
+- OpenAI’s current image editing docs show masked edits on `POST /v1/images/edits` with the source image, a separate mask, and a prompt. This repo preserves that path as an optional direct provider via `provider=openai`.
 - Google’s current Gemini image docs describe text+image editing and image output, but not exact binary-mask inpainting on the API-key path used here. The repo preserves honest failure semantics for that provider until that path exists.

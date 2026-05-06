@@ -18,11 +18,12 @@ const requiredR2Env = [
 
 const requiredTriggerDispatchEnv = ['TRIGGER_API_URL', 'TRIGGER_SECRET_KEY'] as const
 const requiredTriggerWorkerEnv = ['TRIGGER_PROJECT_REF'] as const
-const requiredDefaultProviderEnv = ['OPENAI_API_KEY'] as const
+const requiredDefaultProviderEnv = ['TIKHUB_API_KEY'] as const
 
 const providerRequiredEnv: Record<string, readonly string[]> = {
   openai: ['OPENAI_API_KEY'],
   openrouter: ['OPENROUTER_API_KEY'],
+  tikhub: ['TIKHUB_API_KEY'],
   google: ['GOOGLE_GENERATIVE_AI_API_KEY', 'GOOGLE_IMAGE_MODEL'],
 }
 
