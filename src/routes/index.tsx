@@ -447,6 +447,7 @@ function HomePage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const form = event.currentTarget
     setMessage(null)
 
     if (!sourceFile) {
@@ -462,7 +463,7 @@ function HomePage() {
     setIsSubmitting(true)
 
     try {
-      const formData = new FormData(event.currentTarget)
+      const formData = new FormData(form)
       const sourceFileForSubmission = await normalizeSourceFileForSubmission(sourceFile)
       formData.set('image', sourceFileForSubmission, sourceFileForSubmission.name)
       formData.set('mask', maskFile, maskFile.name)
@@ -512,7 +513,7 @@ function HomePage() {
       setSelectedProvider('')
       setSelectedModel('')
       setIsMaskEditorOpen(false)
-      event.currentTarget.reset()
+      form.reset()
       await navigate({
         to: '/editor/$jobId',
         params: { jobId: payload.job.id },
