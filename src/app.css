@@ -2564,3 +2564,39 @@ input[type='range'] {
     min-height: 260px;
   }
 }
+
+.submit-progress {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  background: rgba(255, 143, 91, 0.08);
+  border: 1px solid rgba(255, 143, 91, 0.2);
+  border-radius: 12px;
+}
+
+.submit-progress-spinner {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255, 143, 91, 0.25);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.submit-progress-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.submit-progress-label {
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.9rem;
+}

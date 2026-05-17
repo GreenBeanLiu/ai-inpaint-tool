@@ -857,15 +857,22 @@ function HomePage() {
                 </div>
               ))}
             </div>
-            <div className="actions">
-              <button
-                className="button button-cta"
-                disabled={isSubmitting || Boolean(submitBlockedReason)}
-                type="submit"
-              >
-                {isSubmitting
-                  ? 'Submitting...'
-                  : createJobBlockedReason
+            {isSubmitting ? (
+              <div className="submit-progress">
+                <div className="submit-progress-spinner" />
+                <div className="submit-progress-text">
+                  <span className="submit-progress-label">Uploading and creating job…</span>
+                  <span className="muted">You'll be redirected when the record is ready.</span>
+                </div>
+              </div>
+            ) : (
+              <div className="actions">
+                <button
+                  className="button button-cta"
+                  disabled={Boolean(submitBlockedReason)}
+                  type="submit"
+                >
+                  {createJobBlockedReason
                     ? 'Creation blocked by runtime config'
                     : sourceMaskDimensionMismatch
                       ? 'Fix source and region dimensions'
@@ -874,11 +881,12 @@ function HomePage() {
                         : !maskFile
                           ? 'Select an edit region to continue'
                           : 'Create queued job'}
-              </button>
-              <span className="muted">
-                Opens the job detail page immediately after the record is created.
-              </span>
-            </div>
+                </button>
+                <span className="muted">
+                  Opens the job detail page immediately after the record is created.
+                </span>
+              </div>
+            )}
             <div className="form-feedback">
               {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
               {sourceMaskDimensionMismatch ? (
