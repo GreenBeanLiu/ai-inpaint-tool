@@ -39,6 +39,9 @@ model EditJob {
   startedAt       DateTime?
   finishedAt      DateTime?
   events          EditJobEvent[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model EditJobEvent {

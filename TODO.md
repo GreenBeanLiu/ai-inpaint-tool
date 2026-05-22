@@ -97,9 +97,9 @@ So the next phase should focus on turning this from an honest backend scaffold i
 - [ ] Consider storing original filenames
 - [ ] Store mask MIME type separately
 - [ ] Store result width/height if different from source
-- [ ] Add indexes for common queries
-  - [ ] status
-  - [ ] createdAt
+- [x] Add indexes for common queries
+  - [x] status
+  - [x] createdAt
 - [ ] Consider adding a dedicated provider metadata JSON field
 
 ### 9. Clean up persistence strategy
@@ -127,14 +127,14 @@ So the next phase should focus on turning this from an honest backend scaffold i
 - [ ] Keep route, worker, and provider responsibilities clearly separated
 
 ### 12. Tighten environment/config validation
-- [ ] Validate env at app startup instead of only at call sites where useful
-- [ ] Group env by subsystem
-  - [ ] database
-  - [ ] R2
-  - [ ] Trigger.dev
-  - [ ] providers
-- [ ] Add clearer startup diagnostics for missing env
-- [ ] Document minimal env for local UI-only testing vs full pipeline testing
+- [x] Validate env at app startup instead of only at call sites where useful
+- [x] Group env by subsystem
+  - [x] database
+  - [x] R2
+  - [x] Trigger.dev
+  - [x] providers
+- [x] Add clearer startup diagnostics for missing env
+- [x] Document minimal env for local UI-only testing vs full pipeline testing
 
 ### 13. Improve error taxonomy
 - [ ] Standardize app/internal/provider/config/input error shapes

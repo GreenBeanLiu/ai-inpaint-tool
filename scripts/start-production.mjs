@@ -6,6 +6,102 @@ import { H3, fromWebHandler, toNodeHandler } from 'h3-v2/node'
 
 process.env.NODE_ENV ??= 'production'
 
+const ENV_SUBSYSTEMS = [
+  {
+    name: 'Database',
+    required: ['DATABASE_URL'],
+  },
+  {
+    name: 'Storage (Cloudflare R2)',
+    required: [
+      'R2_ACCOUNT_ID',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME',
+      'R2_PUBLIC_BASE_URL',
+    ],
+  },
+  {
+    name: 'Trigger.dev dispatch',
+    required: ['TRIGGER_SECRET_KEY', 'TRIGGER_API_URL'],
+  },
+  {
+    name: 'Trigger.dev worker',
+    required: ['TRIGGER_PROJECT_REF'],
+  },
+  {
+    name: 'Provider: Tikhub (default)',
+    required: ['TIKHUB_API_KEY'],
+  },
+  {
+    name: 'Provider: OpenAI (optional)',
+    required: [],
+    optional: ['OPENAI_API_KEY'],
+  },
+  {
+    name: 'Provider: OpenRouter (optional)',
+    required: [],
+    optional: ['OPENROUTER_API_KEY'],
+  },
+  {
+    name: 'Provider: Google Gemini (optional)',
+    required: [],
+    optional: ['GOOGLE_GENERATIVE_AI_API_KEY'],
+  },
+]
+
+function getEnvPresent(name) {
+  const value = process.env[name]?.trim()
+  return Boolean(value)
+}
+
+export function checkStartupEnv() {
+  const results = ENV_SUBSYSTEMS.map((subsystem) => {
+    const missing = (subsystem.required ?? []).filter((name) => !getEnvPresent(name))
+    const presentOptional = (subsystem.optional ?? []).filter((name) => getEnvPresent(name))
+    return { ...subsystem, missing, presentOptional, ready: missing.length === 0 }
+  })
+
+  return {
+    results,
+    totalMissing: results.reduce((sum, r) => sum + r.missing.length, 0),
+    blockedSubsystems: results.filter((r) => !r.ready && (r.required ?? []).length > 0),
+  }
+}
+
+export function logStartupEnvCheck() {
+  const { results, totalMissing, blockedSubsystems } = checkStartupEnv()
+
+  console.log('\n[startup] env check ─────────────────────────────────')
+
+  for (const result of results) {
+    const hasRequired = (result.required ?? []).length > 0
+    const hasOptional = (result.optional ?? []).length > 0
+
+    if (hasRequired) {
+      const mark = result.ready ? '✓' : '✗'
+      console.log(`  [${mark}] ${result.name}`)
+      if (result.missing.length > 0) {
+        console.log(`       missing: ${result.missing.join(', ')}`)
+      }
+    } else if (hasOptional) {
+      const configured = result.presentOptional.length > 0
+      console.log(`  [${configured ? '·' : ' '}] ${result.name}${configured ? ' (configured)' : ' (not configured)'}`)
+    }
+  }
+
+  if (totalMissing === 0) {
+    console.log('\n  All required env vars present. Full pipeline available.')
+  } else {
+    console.log(
+      `\n  ${blockedSubsystems.map((s) => s.name).join(', ')} blocked by missing env.`,
+    )
+    console.log('  Blocked subsystems will fail at request time, not at startup.')
+  }
+
+  console.log('─────────────────────────────────────────────────────\n')
+}
+
 const repoRoot = process.cwd()
 const builtClientPath = path.join(repoRoot, 'dist/client')
 const builtServerPath = path.join(repoRoot, 'dist/server/server.js')
@@ -267,5 +363,6 @@ const isMainModule =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 
 if (isMainModule) {
+  logStartupEnvCheck()
   await startProductionServer()
 }
