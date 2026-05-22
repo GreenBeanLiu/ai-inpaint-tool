@@ -79,51 +79,6 @@ function useImageDimensions(url: string | null) {
   return dimensions
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) {
-    return `${bytes} B`
-  }
-
-  const kb = bytes / 1024
-
-  if (kb < 1024) {
-    return `${kb.toFixed(1)} KB`
-  }
-
-  return `${(kb / 1024).toFixed(1)} MB`
-}
-
-function formatImageDimensions(dimensions: ImageDimensions | null) {
-  if (!dimensions) {
-    return null
-  }
-
-  return `${dimensions.width} × ${dimensions.height}px`
-}
-
-function getSelectedFileSummary(file: File | null, dimensions?: ImageDimensions | null) {
-  if (!file) {
-    return null
-  }
-
-  const type = file.type || 'Unknown type'
-  const summaryParts = [
-    file.name,
-    formatImageDimensions(dimensions ?? null),
-    type,
-    formatFileSize(file.size),
-  ]
-
-  return summaryParts.filter((value): value is string => Boolean(value)).join(' • ')
-}
-
-function getMaskPreviewSummary(file: File | null, dimensions?: ImageDimensions | null) {
-  if (!file) {
-    return null
-  }
-
-  return `${getSelectedFileSummary(file, dimensions)} • Transparent areas mark the preserved image`
-}
 
 function stripExtension(filename: string) {
   return filename.replace(/\.[^.]+$/, '')
@@ -509,198 +464,151 @@ function HomePage() {
 
   return (
     <div className="home-page">
-      <section className="panel intake-panel" id="create-edit-job">
-        <form className="intake-form" onSubmit={handleSubmit}>
-          <div className="simple-intake-grid">
-            <label
-              className={`upload-card field drop-zone ${isDragOver ? 'drop-zone-active' : ''} ${dragError ? 'drop-zone-invalid' : ''}`}
-              onDragEnter={handleDragEnter}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <strong>Source image</strong>
-              <input
-                accept="image/png,image/jpeg,image/webp"
-                name="image"
-                onChange={(event) => handleSourceFileChange(event.target.files?.[0] ?? null)}
-                required
-                type="file"
-              />
-              <span className="upload-summary">
-                {getSelectedFileSummary(sourceFile, sourceDimensions) ?? 'No image selected yet.'}
-              </span>
-              {dragError ? (
-                <div className="inline-validation-note inline-validation-note-error">{dragError}</div>
-              ) : null}
-            </label>
-
-            <section className="mask-launch-card simplified-mask-card">
-              <strong>Edit region</strong>
-              <div className="actions">
-                <button
-                  className="button"
-                  disabled={!sourceFile}
-                  type="button"
-                  onClick={handleOpenMaskEditor}
-                >
-                  {maskFile ? 'Refine selection' : 'Select edit region'}
-                </button>
-              </div>
-              <span className="upload-summary">
-                {getMaskPreviewSummary(maskFile, maskDimensions) ?? 'No edit region confirmed yet.'}
-              </span>
-              {sourceMaskDimensionMismatch ? (
-                <div className="inline-validation-note inline-validation-note-error">
-                  Dimensions don&apos;t match the source image. Reopen the selector.
-                </div>
-              ) : null}
-            </section>
-          </div>
-
-          <label className="field prompt-field">
-            <strong>Prompt</strong>
-            <textarea
-              name="prompt"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Describe the new content, cleanup, or replacement you want inside the selected area."
+      <div className="create-flow">
+        <form className="create-form" onSubmit={handleSubmit}>
+          <label
+            className={`create-drop-zone drop-zone${isDragOver ? ' drop-zone-active' : ''}${dragError ? ' drop-zone-invalid' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <input
+              accept="image/png,image/jpeg,image/webp"
+              name="image"
+              onChange={(event) => handleSourceFileChange(event.target.files?.[0] ?? null)}
+              required
+              type="file"
             />
-            <div className="prompt-example-block">
-              <div className="prompt-example-header">
-                <span className="mask-editor-control-label">Quick examples</span>
-                <span className="muted">Tap one to seed the prompt, then tweak it.</span>
-              </div>
-              <div className="prompt-example-list">
-                {PROMPT_EXAMPLES.map((example) => {
-                  const isSelected = prompt === example
-
-                  return (
-                    <button
-                      aria-pressed={isSelected}
-                      className={`button button-secondary prompt-example-chip${isSelected ? ' is-active' : ''}`}
-                      key={example}
-                      type="button"
-                      onClick={() => setPrompt(example)}
-                    >
-                      {example}
-                    </button>
-                  )
-                })}
-                {prompt ? (
-                  <button
-                    className="button button-secondary prompt-example-clear"
-                    type="button"
-                    onClick={() => setPrompt('')}
-                  >
-                    Clear prompt
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            {sourceFile ? (
+              <span className="create-drop-filename">{sourceFile.name}</span>
+            ) : (
+              <span className="create-drop-hint">Drop an image here, or click to browse</span>
+            )}
+            {dragError ? <span className="create-inline-error">{dragError}</span> : null}
           </label>
 
-          {showProviderSelector ? (
-            <section className="stack">
-              <strong>Provider and model</strong>
-              <div className="provider-selector-grid">
-                <label className="field">
-                  <span className="mask-editor-control-label">Provider</span>
-                  <select
-                    name="provider"
-                    value={selectedProvider}
-                    onChange={(event) => handleProviderChange(event.target.value)}
-                  >
-                    <option value="">Default (OpenAI)</option>
-                    {runtimeReport?.selectableMaskedProviders.map((provider) => (
-                      <option key={provider.id} value={provider.id}>
-                        {provider.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span className="mask-editor-control-label">Model</span>
-                  <input
-                    name="model"
-                    type="text"
-                    value={selectedModel}
-                    onChange={(event) => setSelectedModel(event.target.value)}
-                    placeholder="Leave blank for provider default"
-                  />
-                </label>
-              </div>
-            </section>
+          <button
+            className={`button create-paint-button${maskFile ? ' create-paint-done' : ''}`}
+            disabled={!sourceFile}
+            type="button"
+            onClick={handleOpenMaskEditor}
+          >
+            {maskFile ? '✓ Edit area set — click to repaint' : 'Paint the edit area'}
+          </button>
+          {sourceMaskDimensionMismatch ? (
+            <span className="create-inline-error">Edit area dimensions don&apos;t match. Repaint from this image.</span>
           ) : null}
 
-          <div className="submit-card">
-            {isSubmitting ? (
-              <div className="submit-progress">
-                <div className="submit-progress-spinner" />
-                <div className="submit-progress-text">
-                  <span className="submit-progress-label">Uploading and creating job…</span>
-                </div>
-              </div>
-            ) : (
+          <textarea
+            className="create-prompt"
+            name="prompt"
+            placeholder="Describe what should change in the selected area… (optional)"
+            value={prompt}
+            onChange={(event) => setPrompt(event.target.value)}
+          />
+          <div className="create-examples">
+            {PROMPT_EXAMPLES.map((example) => (
               <button
-                className="button button-cta"
-                disabled={Boolean(submitBlockedReason)}
-                type="submit"
+                aria-pressed={prompt === example}
+                className={`button button-secondary prompt-example-chip${prompt === example ? ' is-active' : ''}`}
+                key={example}
+                type="button"
+                onClick={() => setPrompt(example)}
               >
-                Create job
+                {example}
               </button>
-            )}
-            <div className="form-feedback">
-              {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
-              {sourceMaskDimensionMismatch ? (
-                <div className="alert alert-error">
-                  Source and edit region dimensions must match.
-                </div>
-              ) : null}
-              {message ? <div className="alert">{message}</div> : null}
+            ))}
+            {prompt ? (
+              <button className="button button-secondary" type="button" onClick={() => setPrompt('')}>
+                Clear
+              </button>
+            ) : null}
+          </div>
+
+          {showProviderSelector ? (
+            <div className="provider-selector-grid">
+              <label className="field">
+                <span className="mask-editor-control-label">Provider</span>
+                <select
+                  name="provider"
+                  value={selectedProvider}
+                  onChange={(event) => handleProviderChange(event.target.value)}
+                >
+                  <option value="">Default (OpenAI)</option>
+                  {runtimeReport?.selectableMaskedProviders.map((provider) => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span className="mask-editor-control-label">Model</span>
+                <input
+                  name="model"
+                  placeholder="Provider default"
+                  type="text"
+                  value={selectedModel}
+                  onChange={(event) => setSelectedModel(event.target.value)}
+                />
+              </label>
             </div>
+          ) : null}
+
+          {isSubmitting ? (
+            <div className="create-submitting">
+              <div className="submit-progress-spinner" />
+              <span>Uploading…</span>
+            </div>
+          ) : (
+            <button
+              className="button button-cta create-submit"
+              disabled={Boolean(submitBlockedReason)}
+              type="submit"
+            >
+              Submit
+            </button>
+          )}
+
+          <div className="form-feedback">
+            {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
+            {message ? <div className="alert">{message}</div> : null}
           </div>
         </form>
-      </section>
 
-      <section className="panel recent-jobs-panel">
-          <div className="section-heading">
-            <h2 className="section-title">Recent jobs</h2>
+        <section className="create-recent">
+          <div className="create-recent-header">
+            <span className="create-recent-label">Recent</span>
             <button className="button button-secondary" type="button" onClick={() => void refreshJobs()}>
               Refresh
             </button>
           </div>
-
           {loadError ? <div className="alert alert-error">{loadError}</div> : null}
-
           <div className="recent-job-list">
             {jobs.length === 0 ? (
-              <div className="job-card muted">No jobs loaded yet. Submit a new edit or refresh.</div>
+              <div className="muted">No jobs yet.</div>
             ) : (
               jobs.map((job) => (
-                <article className="recent-job-card" key={job.id}>
-                  <div className="recent-job-header">
-                    <div className="stack" style={{ gap: '0.35rem' }}>
-                      <strong className="job-id">{job.id}</strong>
-                      <span className="muted">
-                        {job.provider} • {job.model}
-                      </span>
+                <Link
+                  className="recent-job-link"
+                  key={job.id}
+                  params={{ jobId: job.id }}
+                  to="/editor/$jobId"
+                >
+                  <article className="recent-job-card">
+                    <div className="recent-job-header">
+                      <span className="job-id">{job.id}</span>
+                      <span className="status-pill">{job.status}</span>
                     </div>
-                    <span className="status-pill">{job.status}</span>
-                  </div>
-                  <div className="recent-job-meta muted">
-                    <span>Stage: {job.stage ?? 'accepted'}</span>
-                    <span>Created: {new Date(job.createdAt).toLocaleString()}</span>
-                  </div>
-                  <p className="muted">{job.prompt || 'No prompt provided.'}</p>
-                  <Link className="inline-link" params={{ jobId: job.id }} to="/editor/$jobId">
-                    Open job details
-                  </Link>
-                </article>
+                    <p className="muted">{job.prompt || '—'}</p>
+                  </article>
+                </Link>
               ))
             )}
           </div>
-      </section>
+        </section>
+      </div>
 
       <ModalShell
         bodyClassName="canvas-editor-modal-body"
