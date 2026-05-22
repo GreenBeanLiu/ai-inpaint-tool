@@ -185,7 +185,7 @@ So the next phase should focus on turning this from an honest backend scaffold i
 
 ### 18. Result management
 - [ ] Add download result button
-- [ ] Add copy result URL button
+- [x] Add copy result URL button
 - [ ] Add before/after compare slider
 - [ ] Add result gallery view for recent jobs
 

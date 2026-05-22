@@ -361,6 +361,29 @@ function getResultCardBadge(job: EditJobDetail) {
   return 'Pending'
 }
 
+function CopyUrlButton({
+  url,
+  label = 'Copy result URL',
+}: Readonly<{
+  url: string
+  label?: string
+}>) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <button className="button button-secondary" type="button" onClick={handleCopy}>
+      {copied ? 'Copied!' : label}
+    </button>
+  )
+}
+
 function renderJson(value: unknown) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
@@ -627,6 +650,9 @@ function EditorJobPage() {
                   {action.label}
                 </a>
               ))}
+              {job.resultImageUrl ? (
+                <CopyUrlButton url={job.resultImageUrl} />
+              ) : null}
               <button
                 className={`button${heroActions.length > 0 ? ' button-secondary' : ''}`}
                 disabled={loading || isRefreshing}
