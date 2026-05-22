@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { ImageComparisonCard } from '@/components/image-comparison-card'
 import { ImagePreviewCard, type ImageCardAction } from '@/components/image-preview-card'
@@ -384,6 +384,47 @@ function CopyUrlButton({
   )
 }
 
+function RetryButton({ jobId }: Readonly<{ jobId: string }>) {
+  const navigate = useNavigate()
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
+
+  async function handleRetry() {
+    setIsRetrying(true)
+    setRetryError(null)
+
+    try {
+      const response = await fetch(`/api/edit-jobs/${jobId}/retry`, { method: 'POST' })
+      const payload = (await response.json()) as { job: EditJobDetail } | ApiErrorResponse
+
+      if (!response.ok || !('job' in payload)) {
+        setRetryError('error' in payload ? payload.error.message : 'Retry failed')
+        return
+      }
+
+      await navigate({ to: '/editor/$jobId', params: { jobId: payload.job.id } })
+    } catch {
+      setRetryError('Unexpected error, retry could not be submitted')
+    } finally {
+      setIsRetrying(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        className="button"
+        disabled={isRetrying}
+        type="button"
+        onClick={() => void handleRetry()}
+      >
+        {isRetrying ? 'Creating retry…' : 'Retry job'}
+      </button>
+      {retryError ? <span className="muted">{retryError}</span> : null}
+    </>
+  )
+}
+
 function renderJson(value: unknown) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
@@ -653,6 +694,7 @@ function EditorJobPage() {
               {job.resultImageUrl ? (
                 <CopyUrlButton url={job.resultImageUrl} />
               ) : null}
+              {job.status === 'failed' ? <RetryButton jobId={job.id} /> : null}
               <button
                 className={`button${heroActions.length > 0 ? ' button-secondary' : ''}`}
                 disabled={loading || isRefreshing}

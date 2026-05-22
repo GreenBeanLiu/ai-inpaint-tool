@@ -88,7 +88,7 @@ So the next phase should focus on turning this from an honest backend scaffold i
 
 ### 7. Strengthen job lifecycle and retry handling
 - [ ] Add retry support for transient worker failures
-- [ ] Distinguish retryable vs non-retryable errors
+- [x] Distinguish retryable vs non-retryable errors
 - [ ] Store provider request ids consistently
 - [ ] Track attempt count per job
 - [ ] Prevent duplicate processing for the same job/run when possible
@@ -180,7 +180,7 @@ So the next phase should focus on turning this from an honest backend scaffold i
 - [ ] Add a lightweight browser-side mask drawing tool instead of requiring a separate mask file
 - [ ] Allow users to paint, erase, and preview mask overlays
 - [ ] Add prompt history or recent prompts
-- [ ] Support re-running a failed job
+- [x] Support re-running a failed job
 - [ ] Support “use result as new source” iteration
 
 ### 18. Result management

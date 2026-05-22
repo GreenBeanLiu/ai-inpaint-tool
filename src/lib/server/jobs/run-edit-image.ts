@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 import { EditJobStatus } from '@prisma/client'
 
-import { AppError } from '@/lib/server/errors'
+import { AppError, isRetryableError } from '@/lib/server/errors'
 import { editImageWithProvider } from '@/lib/server/image-models'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
@@ -127,6 +127,7 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
     const finishedAt = new Date()
     const appError = error instanceof AppError ? error : null
     const message = error instanceof Error ? error.message : 'Unknown processing failure'
+    const retryable = isRetryableError(error)
 
     await repository.updateLifecycle(input.jobId, {
       status: EditJobStatus.failed,
@@ -147,6 +148,7 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
         failedStage: currentStage,
         provider: existingJob.provider,
         model: existingJob.model,
+        retryable,
         details: toJsonSafeValue(appError?.details ?? null),
       },
     })
