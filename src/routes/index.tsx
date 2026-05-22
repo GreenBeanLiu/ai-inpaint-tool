@@ -12,10 +12,8 @@ const PROMPT_EXAMPLES = [
   'Fill the masked region with blue sky and soft clouds that blend naturally.',
 ] as const
 
-import { ImagePreviewCard } from '@/components/image-preview-card'
 import { MaskPaintEditor } from '@/components/mask-paint-editor'
 import { ModalShell } from '@/components/modal-shell'
-import { RuntimeStatusPanel } from '@/components/runtime-status-panel'
 import type { ApiErrorResponse, EditJobRecord, RuntimeCheckReport } from '@/lib/types'
 
 export const Route = createFileRoute('/')({
@@ -131,12 +129,6 @@ function stripExtension(filename: string) {
   return filename.replace(/\.[^.]+$/, '')
 }
 
-function getMaskDownloadFilename(sourceFile: File | null) {
-  const baseName = sourceFile ? stripExtension(sourceFile.name) : 'mask'
-  const safeBaseName = baseName.trim() || 'mask'
-  return `${safeBaseName}-mask.png`
-}
-
 function getPngFilename(filename: string) {
   const baseName = stripExtension(filename).trim() || 'source'
   return `${baseName}.png`
@@ -193,22 +185,6 @@ async function normalizeSourceFileForSubmission(file: File): Promise<File> {
   }
 }
 
-function getRuntimeCreateStatusLabel(report: RuntimeCheckReport | null) {
-  if (!report) {
-    return 'Checking runtime'
-  }
-
-  return report.overall.canCreateJob ? 'Ready to create jobs' : 'Runtime attention needed'
-}
-
-function getRuntimeCreateTone(report: RuntimeCheckReport | null) {
-  if (!report) {
-    return 'is-pending'
-  }
-
-  return report.overall.canCreateJob ? 'is-ready' : 'is-blocked'
-}
-
 function haveImageDimensionsMismatch(
   sourceDimensions: ImageDimensions | null,
   maskDimensions: ImageDimensions | null,
@@ -232,10 +208,8 @@ function HomePage() {
   const [jobs, setJobs] = useState<EditJobRecord[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isMaskEditorOpen, setIsMaskEditorOpen] = useState(false)
-  const [isRefreshingRuntime, setIsRefreshingRuntime] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [runtimeReport, setRuntimeReport] = useState<RuntimeCheckReport | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragError, setDragError] = useState<string | null>(null)
@@ -247,31 +221,24 @@ function HomePage() {
   const maskDimensions = useImageDimensions(maskPreviewUrl)
 
   useEffect(() => {
-    void refreshRuntimeCheck().catch((error) => {
-      setRuntimeError(error instanceof Error ? error.message : 'Failed to load runtime readiness')
-    })
+    void refreshRuntimeCheck()
     void refreshJobs().catch((error) => {
       setLoadError(error instanceof Error ? error.message : 'Failed to load jobs')
     })
   }, [])
 
   async function refreshRuntimeCheck() {
-    setIsRefreshingRuntime(true)
-
     try {
       const response = await fetch('/api/runtime-check')
       const payload = (await response.json()) as RuntimeCheckReport | ApiErrorResponse
 
       if (!response.ok || !('checkedAt' in payload)) {
-        const errorMessage =
-          'error' in payload ? payload.error.message : 'Failed to load runtime readiness'
-        throw new Error(errorMessage)
+        return
       }
 
       setRuntimeReport(payload)
-      setRuntimeError(null)
-    } finally {
-      setIsRefreshingRuntime(false)
+    } catch {
+      // runtime check is best-effort; blocked reason surfaces in form feedback
     }
   }
 
@@ -528,38 +495,8 @@ function HomePage() {
   const createJobBlockedReason = runtimeReport?.overall.canCreateJob
     ? null
     : runtimeReport?.overall.blockers[0] ?? null
-  const listJobsBlockedReason = runtimeReport?.overall.canListJobs
-    ? null
-    : runtimeReport?.overall.blockers.find((blocker) =>
-        blocker.toLowerCase().includes('database'),
-      ) ??
-      runtimeReport?.overall.blockers[0] ??
-      null
-  const activeJobs = jobs.filter((job) => job.status === 'queued' || job.status === 'processing')
   const sourceMaskDimensionMismatch = haveImageDimensionsMismatch(sourceDimensions, maskDimensions)
   const showProviderSelector = (runtimeReport?.selectableMaskedProviders.length ?? 0) >= 2
-  const submitValidationItems = [
-    {
-      label: sourceFile ? 'Source image selected' : 'Choose a source image',
-      ready: Boolean(sourceFile),
-    },
-    {
-      label: maskFile ? 'Edit region confirmed' : 'Select and confirm an edit region',
-      ready: Boolean(maskFile),
-    },
-    {
-      label: sourceMaskDimensionMismatch
-        ? 'Source image and edit region dimensions do not match'
-        : 'Source image and edit region dimensions match',
-      ready: !sourceMaskDimensionMismatch,
-      pending: Boolean(sourceFile && maskFile && (!sourceDimensions || !maskDimensions)),
-    },
-    {
-      label: createJobBlockedReason ?? 'Runtime ready to create jobs',
-      ready: !createJobBlockedReason,
-      pending: !runtimeReport,
-    },
-  ]
   const submitBlockedReason =
     createJobBlockedReason ??
     (sourceMaskDimensionMismatch
@@ -572,36 +509,8 @@ function HomePage() {
 
   return (
     <div className="home-page">
-      <section className="panel intake-panel simplified-intake-panel" id="create-edit-job">
-        <div className="simple-home-heading">
-          <div className="section-heading">
-            <div className="section-heading-copy">
-              <div className="section-eyebrow">New edit</div>
-              <h1 className="section-title">Upload, mark the edit area, submit.</h1>
-              <p className="section-description muted">
-                Choose a source image, mark the area you want to change, add an optional prompt,
-                then submit through the same job pipeline.
-              </p>
-            </div>
-            <span className={`hero-runtime-chip ${getRuntimeCreateTone(runtimeReport)}`}>
-              {runtimeReport
-                ? createJobBlockedReason ?? getRuntimeCreateStatusLabel(runtimeReport)
-                : 'Checking runtime'}
-            </span>
-          </div>
-
-          <div className="simple-home-stats">
-            <span className={`inline-status ${sourceFile ? 'is-ready' : 'is-pending'}`}>
-              {sourceFile ? `Source: ${sourceFile.name}` : 'Source image not selected'}
-            </span>
-            <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
-              {maskFile ? 'Edit region confirmed' : 'Edit region required'}
-            </span>
-            <span className="inline-status is-pending">{activeJobs.length} active jobs</span>
-          </div>
-        </div>
-
-        <form className="intake-form simplified-intake-form" onSubmit={handleSubmit}>
+      <section className="panel intake-panel" id="create-edit-job">
+        <form className="intake-form" onSubmit={handleSubmit}>
           <div className="simple-intake-grid">
             <label
               className={`upload-card field drop-zone ${isDragOver ? 'drop-zone-active' : ''} ${dragError ? 'drop-zone-invalid' : ''}`}
@@ -610,15 +519,7 @@ function HomePage() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <div className="upload-card-header">
-                <span className="step-badge">Step 1</span>
-                <strong>Source image</strong>
-              </div>
-              <span className="muted">
-                PNG, JPEG, and WEBP are supported. Drag and drop an image here or click to browse.
-                JPEG and WEBP are converted to PNG in the browser before submission so the default
-                OpenAI mask upload stays compatible.
-              </span>
+              <strong>Source image</strong>
               <input
                 accept="image/png,image/jpeg,image/webp"
                 name="image"
@@ -632,26 +533,10 @@ function HomePage() {
               {dragError ? (
                 <div className="inline-validation-note inline-validation-note-error">{dragError}</div>
               ) : null}
-              {sourceFile && sourceFileNeedsPngNormalization(sourceFile) ? (
-                <div className="inline-validation-note">
-                  This source will be uploaded as {getPngFilename(sourceFile.name)} so it matches
-                  the region selector&apos;s PNG edit-region file for the default OpenAI submission path.
-                </div>
-              ) : null}
-              {!sourceFile && !dragError ? (
-                <div className="inline-validation-note">A source image is required before you can select an edit region or submit.</div>
-              ) : null}
             </label>
 
             <section className="mask-launch-card simplified-mask-card">
-              <div className="upload-card-header">
-                <span className="step-badge">Step 2</span>
-                <strong>Edit region selector</strong>
-              </div>
-              <p className="muted">
-                Reopen the selector any time. Cancel keeps the last confirmed edit region. Confirm replaces
-                the region file that will be uploaded.
-              </p>
+              <strong>Edit region</strong>
               <div className="actions">
                 <button
                   className="button"
@@ -661,96 +546,20 @@ function HomePage() {
                 >
                   {maskFile ? 'Refine selection' : 'Select edit region'}
                 </button>
-                <span className={`inline-status ${maskFile ? 'is-ready' : 'is-pending'}`}>
-                  {maskFile ? 'Edit region confirmed' : 'Select edit region'}
-                </span>
               </div>
               <span className="upload-summary">
-                {getMaskPreviewSummary(maskFile, maskDimensions) ??
-                  'No confirmed edit region yet. Mark at least one area to change.'}
+                {getMaskPreviewSummary(maskFile, maskDimensions) ?? 'No edit region confirmed yet.'}
               </span>
-              {sourceFile && !maskFile ? (
-                <div className="inline-validation-note">
-                  Open the selector and confirm an edit region before creating the job.
-                </div>
-              ) : null}
               {sourceMaskDimensionMismatch ? (
                 <div className="inline-validation-note inline-validation-note-error">
-                  The current edit region dimensions do not match the source image. Reopen the selector and
-                  regenerate the region file from this source.
+                  Dimensions don&apos;t match the source image. Reopen the selector.
                 </div>
               ) : null}
             </section>
           </div>
 
-          <section className="stack">
-            <div className="section-heading">
-              <h2 className="subsection-title">Preview</h2>
-              <button
-                className="button button-secondary"
-                disabled={!sourceFile}
-                type="button"
-                onClick={handleOpenMaskEditor}
-              >
-                {maskFile ? 'Refine region' : 'Select region'}
-              </button>
-            </div>
-            <div className="preview-grid">
-              <ImagePreviewCard
-                alt="Selected source preview"
-                actions={
-                  sourcePreviewUrl && sourceFile
-                    ? [
-                        {
-                          href: sourcePreviewUrl,
-                          label: 'Open source',
-                          tone: 'secondary',
-                        },
-                        {
-                          href: sourcePreviewUrl,
-                          label: 'Download source',
-                          download: sourceFile.name,
-                        },
-                      ]
-                    : undefined
-                }
-                emptyLabel="Choose a source image to preview it before submission."
-                src={sourcePreviewUrl}
-                summary={getSelectedFileSummary(sourceFile, sourceDimensions)}
-                title="Source preview"
-              />
-              <ImagePreviewCard
-                alt="Generated edit region preview"
-                actions={
-                  maskPreviewUrl
-                    ? [
-                        {
-                          href: maskPreviewUrl,
-                          label: 'Open region file',
-                          tone: 'secondary',
-                        },
-                        {
-                          href: maskPreviewUrl,
-                          label: 'Download region file',
-                          download: getMaskDownloadFilename(sourceFile),
-                        },
-                      ]
-                    : undefined
-                }
-                emptyLabel="Mark the area you want to change to generate an edit-region preview."
-                src={maskPreviewUrl}
-                summary={getMaskPreviewSummary(maskFile, maskDimensions)}
-                title="Confirmed edit region"
-              />
-            </div>
-          </section>
-
           <label className="field prompt-field">
-            <div className="upload-card-header">
-              <span className="step-badge">Step 3</span>
-              <strong>Prompt</strong>
-            </div>
-            <span className="muted">Optional guidance for what should be filled or replaced.</span>
+            <strong>Prompt</strong>
             <textarea
               name="prompt"
               value={prompt}
@@ -793,13 +602,7 @@ function HomePage() {
 
           {showProviderSelector ? (
             <section className="stack">
-              <div className="upload-card-header">
-                <span className="step-badge">Optional</span>
-                <strong>Provider and model</strong>
-              </div>
-              <p className="muted">
-                Multiple region-editing providers are configured. Choose a provider and model, or leave blank for the default OpenAI path.
-              </p>
+              <strong>Provider and model</strong>
               <div className="provider-selector-grid">
                 <label className="field">
                   <span className="mask-editor-control-label">Provider</span>
@@ -830,82 +633,37 @@ function HomePage() {
             </section>
           ) : null}
 
-          <section className="submit-card">
-            <div className="upload-card-header">
-              <span className="step-badge">Step 4</span>
-              <strong>Submit job</strong>
-            </div>
-            <p className="muted">
-              {showProviderSelector
-                ? 'Multiple region-editing providers are available. Choose a provider above or submit with the default OpenAI path.'
-                : 'Submits the default OpenAI region-edit path. Other providers remain unavailable or unconfigured for this workflow.'}
-            </p>
-            <div className="submit-validation-list">
-              {submitValidationItems.map((item) => (
-                <div className="submit-validation-row" key={item.label}>
-                  <span
-                    className={`inline-status ${
-                      item.pending ? 'is-pending' : item.ready ? 'is-ready' : 'is-blocked'
-                    }`}
-                  >
-                    {item.pending ? 'Checking' : item.ready ? 'Ready' : 'Fix'}
-                  </span>
-                  <span className="submit-validation-copy">{item.label}</span>
-                </div>
-              ))}
-            </div>
+          <div className="submit-card">
             {isSubmitting ? (
               <div className="submit-progress">
                 <div className="submit-progress-spinner" />
                 <div className="submit-progress-text">
                   <span className="submit-progress-label">Uploading and creating job…</span>
-                  <span className="muted">You'll be redirected when the record is ready.</span>
                 </div>
               </div>
             ) : (
-              <div className="actions">
-                <button
-                  className="button button-cta"
-                  disabled={Boolean(submitBlockedReason)}
-                  type="submit"
-                >
-                  {createJobBlockedReason
-                    ? 'Creation blocked by runtime config'
-                    : sourceMaskDimensionMismatch
-                      ? 'Fix source and region dimensions'
-                      : !sourceFile
-                        ? 'Choose a source image'
-                        : !maskFile
-                          ? 'Select an edit region to continue'
-                          : 'Create queued job'}
-                </button>
-                <span className="muted">
-                  Opens the job detail page immediately after the record is created.
-                </span>
-              </div>
+              <button
+                className="button button-cta"
+                disabled={Boolean(submitBlockedReason)}
+                type="submit"
+              >
+                Create job
+              </button>
             )}
             <div className="form-feedback">
               {createJobBlockedReason ? <div className="alert alert-error">{createJobBlockedReason}</div> : null}
               {sourceMaskDimensionMismatch ? (
                 <div className="alert alert-error">
-                  Source image and edit region must have identical dimensions before submission.
+                  Source and edit region dimensions must match.
                 </div>
               ) : null}
               {message ? <div className="alert">{message}</div> : null}
             </div>
-          </section>
+          </div>
         </form>
       </section>
 
-      <div className="simple-home-secondary">
-        <RuntimeStatusPanel
-          error={runtimeError}
-          isLoading={isRefreshingRuntime}
-          onRefresh={refreshRuntimeCheck}
-          report={runtimeReport}
-        />
-
-        <section className="panel recent-jobs-panel">
+      <section className="panel recent-jobs-panel">
           <div className="section-heading">
             <h2 className="section-title">Recent jobs</h2>
             <button className="button button-secondary" type="button" onClick={() => void refreshJobs()}>
@@ -913,7 +671,6 @@ function HomePage() {
             </button>
           </div>
 
-          {listJobsBlockedReason ? <div className="alert alert-error">{listJobsBlockedReason}</div> : null}
           {loadError ? <div className="alert alert-error">{loadError}</div> : null}
 
           <div className="recent-job-list">
@@ -943,8 +700,7 @@ function HomePage() {
               ))
             )}
           </div>
-        </section>
-      </div>
+      </section>
 
       <ModalShell
         bodyClassName="canvas-editor-modal-body"
