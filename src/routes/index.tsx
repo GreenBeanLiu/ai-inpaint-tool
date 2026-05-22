@@ -685,10 +685,7 @@ function HomePage() {
 
           <section className="stack">
             <div className="section-heading">
-              <div className="section-heading-copy">
-                <div className="section-eyebrow">Preview</div>
-                <h2 className="subsection-title">Source image and edit region</h2>
-              </div>
+              <h2 className="subsection-title">Preview</h2>
               <button
                 className="button button-secondary"
                 disabled={!sourceFile}
@@ -910,13 +907,7 @@ function HomePage() {
 
         <section className="panel recent-jobs-panel">
           <div className="section-heading">
-            <div className="section-heading-copy">
-              <div className="section-eyebrow">Recent jobs</div>
-              <h2 className="section-title">Latest runs</h2>
-              <p className="section-description muted">
-                Use the detail page to inspect lifecycle state, provider selection, and worker events.
-              </p>
-            </div>
+            <h2 className="section-title">Recent jobs</h2>
             <button className="button button-secondary" type="button" onClick={() => void refreshJobs()}>
               Refresh
             </button>
