@@ -25,6 +25,7 @@ model EditJob {
   maskImageUrl    String
   resultImageUrl  String?
   sourceMimeType  String?
+  maskMimeType    String?
   resultMimeType  String?
   width           Int?
   height          Int?

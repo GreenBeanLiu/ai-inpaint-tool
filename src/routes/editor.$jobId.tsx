@@ -843,7 +843,7 @@ function EditorJobPage() {
               src={job.maskImageUrl}
               summary={formatImageSummary([
                 job.width && job.height ? `${job.width} x ${job.height}` : null,
-                'Uploaded edit region',
+                job.maskMimeType ?? 'Uploaded edit region',
               ])}
               title="Edit region image"
               variant="supporting"

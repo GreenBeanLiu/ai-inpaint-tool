@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { EditJobStatus } from '@prisma/client'
 
 import { AppError, isRetryableError } from '@/lib/server/errors'
+import { logger } from '@/lib/server/logger'
 import { editImageWithProvider } from '@/lib/server/image-models'
 import { notifyJobEvent } from '@/lib/server/jobs/notifier'
 import { createEditJobRepository } from '@/lib/server/repositories/edit-jobs'
@@ -33,6 +34,12 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
 
   const startedAt = new Date()
   let currentStage = 'preparing'
+
+  logger.info('[worker] job started', {
+    jobId: input.jobId,
+    provider: existingJob.provider,
+    model: existingJob.model,
+  })
 
   await repository.updateLifecycle(input.jobId, {
     status: EditJobStatus.processing,
@@ -67,6 +74,13 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       },
     })
 
+    const providerStart = Date.now()
+    logger.info('[worker] provider request started', {
+      jobId: input.jobId,
+      provider: existingJob.provider,
+      model: existingJob.model,
+    })
+
     const modelResult = await editImageWithProvider({
       provider: existingJob.provider,
       sourceImageUrl: existingJob.sourceImageUrl,
@@ -74,6 +88,14 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       prompt: existingJob.prompt ?? undefined,
       model: existingJob.model,
       mimeType: existingJob.sourceMimeType ?? undefined,
+    })
+
+    logger.info('[worker] provider request completed', {
+      jobId: input.jobId,
+      provider: existingJob.provider,
+      providerMs: Date.now() - providerStart,
+      resultMimeType: modelResult.resultMimeType,
+      providerRequestId: modelResult.providerRequestId ?? null,
     })
 
     currentStage = 'uploading'
@@ -94,10 +116,17 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       },
     })
 
+    const uploadStart = Date.now()
     const asset = await uploadAssetToR2({
       key: getResultAssetKey(input.jobId, modelResult.resultMimeType),
       body: modelResult.resultImageBytes,
       contentType: modelResult.resultMimeType,
+    })
+
+    logger.info('[worker] result upload complete', {
+      jobId: input.jobId,
+      resultKey: asset.key,
+      uploadMs: Date.now() - uploadStart,
     })
 
     const finishedAt = new Date()
@@ -110,6 +139,13 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
       resultMimeType: modelResult.resultMimeType,
       processingMs: finishedAt.getTime() - startedAt.getTime(),
       finishedAt,
+    })
+
+    logger.info('[worker] job succeeded', {
+      jobId: input.jobId,
+      provider: existingJob.provider,
+      totalMs: finishedAt.getTime() - startedAt.getTime(),
+      resultImageUrl: asset.url,
     })
 
     await notifyJobEvent({
@@ -128,6 +164,16 @@ export async function runEditImageJob(input: EditImageTaskPayload) {
     const appError = error instanceof AppError ? error : null
     const message = error instanceof Error ? error.message : 'Unknown processing failure'
     const retryable = isRetryableError(error)
+
+    logger.error('[worker] job failed', {
+      jobId: input.jobId,
+      provider: existingJob.provider,
+      failedStage: currentStage,
+      errorCode: appError?.code ?? 'PROCESSING_ERROR',
+      errorMessage: message,
+      retryable,
+      totalMs: finishedAt.getTime() - startedAt.getTime(),
+    })
 
     await repository.updateLifecycle(input.jobId, {
       status: EditJobStatus.failed,

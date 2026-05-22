@@ -21,6 +21,7 @@ export interface EditJobRecord {
   maskImageUrl: string
   resultImageUrl: string | null
   sourceMimeType: string | null
+  maskMimeType: string | null
   resultMimeType: string | null
   width: number | null
   height: number | null
@@ -89,6 +90,7 @@ export interface CreateEditJobInput {
   sourceImageUrl: string
   maskImageUrl: string
   sourceMimeType?: string
+  maskMimeType?: string
   width?: number
   height?: number
   fileSize?: number
