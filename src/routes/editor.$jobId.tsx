@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { ImageComparisonCard } from '@/components/image-comparison-card'
 import { ImagePreviewCard, type ImageCardAction } from '@/components/image-preview-card'
@@ -209,40 +209,11 @@ function sortPrimaryActions(actions: ImageCardAction[]) {
   return [...actions].sort((left, right) => Number(Boolean(right.download)) - Number(Boolean(left.download)))
 }
 
-function getHeroCopy(job: EditJobDetail) {
-  if (job.status === 'succeeded') {
-    return {
-      kicker: 'Result Ready',
-      title: 'Edited output ready for review.',
-      description:
-        'Compare the final image against the original, keep the selected region close for context, and export the delivered asset directly from this page.',
-    }
-  }
-
-  if (job.status === 'failed') {
-    return {
-      kicker: 'Run Needs Attention',
-      title: 'This edit stopped before producing a final output.',
-      description:
-        'The source image and edit region are preserved so the failed run stays inspectable, while the raw diagnostics stay tucked behind lightweight disclosures.',
-    }
-  }
-
-  if (job.status === 'processing') {
-    return {
-      kicker: 'Rendering In Progress',
-      title: 'The worker is still generating the final image.',
-      description:
-        'This page keeps the source visible while the result uploads, then it promotes the finished output into the review area automatically.',
-    }
-  }
-
-  return {
-    kicker: 'Queued For Processing',
-    title: 'The edit is staged and waiting for worker pickup.',
-    description:
-      'Use the source and edit-region previews to verify the setup now. The result area will update in place once processing begins and the output is stored.',
-  }
+function getHeroTitle(job: EditJobDetail) {
+  if (job.status === 'succeeded') return 'Output ready for review'
+  if (job.status === 'failed') return 'Edit stopped — no output produced'
+  if (job.status === 'processing') return 'Generating final image…'
+  return 'Queued for processing'
 }
 
 function getHeroSupportNote(job: EditJobDetail, autoRefresh: boolean) {
@@ -361,6 +332,70 @@ function getResultCardBadge(job: EditJobDetail) {
   return 'Pending'
 }
 
+function CopyUrlButton({
+  url,
+  label = 'Copy result URL',
+}: Readonly<{
+  url: string
+  label?: string
+}>) {
+  const [copied, setCopied] = useState(false)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <button className="button button-secondary" type="button" onClick={handleCopy}>
+      {copied ? 'Copied!' : label}
+    </button>
+  )
+}
+
+function RetryButton({ jobId }: Readonly<{ jobId: string }>) {
+  const navigate = useNavigate()
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
+
+  async function handleRetry() {
+    setIsRetrying(true)
+    setRetryError(null)
+
+    try {
+      const response = await fetch(`/api/edit-jobs/${jobId}/retry`, { method: 'POST' })
+      const payload = (await response.json()) as { job: EditJobDetail } | ApiErrorResponse
+
+      if (!response.ok || !('job' in payload)) {
+        setRetryError('error' in payload ? payload.error.message : 'Retry failed')
+        return
+      }
+
+      await navigate({ to: '/editor/$jobId', params: { jobId: payload.job.id } })
+    } catch {
+      setRetryError('Unexpected error, retry could not be submitted')
+    } finally {
+      setIsRetrying(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        className="button"
+        disabled={isRetrying}
+        type="button"
+        onClick={() => void handleRetry()}
+      >
+        {isRetrying ? 'Creating retry…' : 'Retry job'}
+      </button>
+      {retryError ? <span className="muted">{retryError}</span> : null}
+    </>
+  )
+}
+
 function renderJson(value: unknown) {
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
 }
@@ -466,7 +501,6 @@ function EditorJobPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null)
   const [pollTick, setPollTick] = useState(0)
 
   async function loadJob(options?: { background?: boolean }) {
@@ -483,7 +517,6 @@ function EditorJobPage() {
       const nextJob = await fetchJobDetail(jobId)
       setJob(nextJob)
       setError(null)
-      setLastLoadedAt(new Date().toISOString())
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unexpected error')
     } finally {
@@ -500,7 +533,6 @@ function EditorJobPage() {
   useEffect(() => {
     setJob(null)
     setError(null)
-    setLastLoadedAt(null)
     setLoading(true)
     void loadJob()
   }, [jobId])
@@ -553,7 +585,6 @@ function EditorJobPage() {
   const autoRefresh = shouldAutoRefresh(job)
   const comparisonEmptyState = getComparisonEmptyState(job)
   const failureDiagnosticEvent = getFailureDiagnosticEvent(job)
-  const heroCopy = getHeroCopy(job)
   const sourceActions = getAssetActions(
     job.sourceImageUrl,
     {
@@ -596,9 +627,7 @@ function EditorJobPage() {
             <Link className="inline-link" to="/">
               Back to queue
             </Link>
-            <div className="hero-kicker">{heroCopy.kicker}</div>
-            <h1 className="job-hero-title">{heroCopy.title}</h1>
-            <p className="job-hero-description muted">{heroCopy.description}</p>
+            <h1 className="job-hero-title">{getHeroTitle(job)}</h1>
             <div className="job-hero-note">
               <span className="job-id">{job.id}</span>
               <span className="muted">{getHeroSupportNote(job, autoRefresh)}</span>
@@ -627,6 +656,10 @@ function EditorJobPage() {
                   {action.label}
                 </a>
               ))}
+              {job.resultImageUrl ? (
+                <CopyUrlButton url={job.resultImageUrl} />
+              ) : null}
+              {job.status === 'failed' ? <RetryButton jobId={job.id} /> : null}
               <button
                 className={`button${heroActions.length > 0 ? ' button-secondary' : ''}`}
                 disabled={loading || isRefreshing}
@@ -682,24 +715,11 @@ function EditorJobPage() {
             <strong>{formatProcessingTime(job.processingMs)}</strong>
             <span className="muted">Created {formatTimestamp(job.createdAt)}</span>
           </article>
-          <article className="job-hero-metric">
-            <span className="stat-label">Last Loaded</span>
-            <strong>{formatTimestamp(lastLoadedAt)}</strong>
-            <span className="muted">
-              {latestEvent ? `${latestEvent.type} • ${formatTimestamp(latestEvent.createdAt)}` : 'No events yet'}
-            </span>
-          </article>
         </div>
       </section>
 
       <section className="panel stack">
-        <div className="section-heading">
-          <div className="section-heading-copy">
-            <div className="section-eyebrow">Review</div>
-            <h2 className="subsection-title">Inspect the edit before export</h2>
-          </div>
-          <span className="muted">Source and result stay in one workspace while the output is pending or ready.</span>
-        </div>
+        <h2 className="subsection-title">Review</h2>
         <ImageComparisonCard
           badge={getComparisonBadge(job)}
           emptyActions={sourceActions}
@@ -721,13 +741,7 @@ function EditorJobPage() {
       </section>
 
       <section className="panel stack">
-        <div className="section-heading">
-          <div className="section-heading-copy">
-            <div className="section-eyebrow">Assets</div>
-            <h2 className="subsection-title">Source, edit region, and delivered output</h2>
-          </div>
-          <span className="muted">The result stays primary while the original inputs remain close for reference.</span>
-        </div>
+        <h2 className="subsection-title">Assets</h2>
 
         <div className="job-assets-layout">
           <div className="job-asset job-asset-result">
@@ -775,7 +789,7 @@ function EditorJobPage() {
               src={job.maskImageUrl}
               summary={formatImageSummary([
                 job.width && job.height ? `${job.width} x ${job.height}` : null,
-                'Uploaded edit region',
+                job.maskMimeType ?? 'Uploaded edit region',
               ])}
               title="Edit region image"
               variant="supporting"
@@ -786,8 +800,7 @@ function EditorJobPage() {
 
       <section className="job-info-grid">
         <article className="panel stack prompt-panel">
-          <div className="section-eyebrow">Prompt</div>
-          <h2 className="subsection-title">Edit instruction</h2>
+          <h2 className="subsection-title">Prompt</h2>
           <p className="job-prompt-copy">{job.prompt ?? 'No prompt was provided for this edit.'}</p>
           <div className="job-prompt-meta">
             <span className="inline-status">{job.provider}</span>
@@ -797,8 +810,7 @@ function EditorJobPage() {
         </article>
 
         <article className="panel stack">
-          <div className="section-eyebrow">Run Details</div>
-          <h2 className="subsection-title">Execution snapshot</h2>
+          <h2 className="subsection-title">Run details</h2>
           <div className="job-detail-list">
             <div className="job-detail-row">
               <span className="job-detail-label">Job ID</span>
@@ -842,13 +854,7 @@ function EditorJobPage() {
       </section>
 
       <section className="panel stack">
-        <div className="section-heading">
-          <div className="section-heading-copy">
-            <div className="section-eyebrow">Lifecycle</div>
-            <h2 className="subsection-title">Readable event timeline</h2>
-          </div>
-          <span className="muted">Each stage stays readable in plain language, with raw types and payload JSON kept secondary.</span>
-        </div>
+        <h2 className="subsection-title">Lifecycle</h2>
 
         <div className="event-list">
           {timelineEvents.length === 0 ? (

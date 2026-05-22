@@ -28,6 +28,7 @@ import {
   requireMultipartTextField,
 } from '@/lib/server/validation/edit-jobs'
 import { editImageTask } from '@/lib/server/trigger/tasks'
+import { logger } from '@/lib/server/logger'
 
 function toJsonSafeValue(value: unknown): Prisma.InputJsonValue | null {
   if (value == null) {
@@ -102,9 +103,20 @@ export const Route = createFileRoute('/api/edit-jobs')({
         }
       },
       POST: async ({ request }) => {
+        const intakeStart = Date.now()
+
         try {
           const { fields, sourceImage, maskImage } = await parseCreateEditJobRequest(request)
           assertProviderSupportsMaskInpainting(fields.provider)
+
+          logger.info('[intake] request parsed', {
+            provider: fields.provider,
+            model: fields.model,
+            sourceMimeType: sourceImage.type,
+            maskMimeType: maskImage.type,
+            sourceSize: sourceImage.size,
+            maskSize: maskImage.size,
+          })
 
           const [sourceBuffer, maskBuffer] = await Promise.all([
             sourceImage.arrayBuffer(),
@@ -131,6 +143,7 @@ export const Route = createFileRoute('/api/edit-jobs')({
             maskMimeType: maskImage.type,
           })
 
+          const uploadStart = Date.now()
           const [sourceAsset, maskAsset] = await Promise.all([
             uploadAssetToR2({
               key: createUploadedAssetKey('source', sourceImage.type),
@@ -144,17 +157,30 @@ export const Route = createFileRoute('/api/edit-jobs')({
             }),
           ])
 
+          logger.info('[intake] uploads complete', {
+            sourceKey: sourceAsset.key,
+            maskKey: maskAsset.key,
+            uploadMs: Date.now() - uploadStart,
+          })
+
           const repository = createEditJobRepository()
           const createdJob = await repository.create({
             prompt: fields.prompt,
             sourceImageUrl: sourceAsset.url,
             maskImageUrl: maskAsset.url,
             sourceMimeType: sourceImage.type,
+            maskMimeType: maskImage.type,
             width: sourceMetadata.width,
             height: sourceMetadata.height,
             fileSize: sourceImage.size,
             provider: fields.provider,
             model: fields.model,
+          })
+
+          logger.info('[intake] job created', {
+            jobId: createdJob.id,
+            provider: createdJob.provider,
+            model: createdJob.model,
           })
 
           try {
@@ -177,6 +203,13 @@ export const Route = createFileRoute('/api/edit-jobs')({
               },
             })
 
+            logger.info('[intake] dispatch submitted', {
+              jobId: createdJob.id,
+              taskId: editImageTask.id,
+              runId: dispatch.runId,
+              totalIntakeMs: Date.now() - intakeStart,
+            })
+
             const job = await repository.getById(createdJob.id)
 
             return Response.json(
@@ -194,6 +227,12 @@ export const Route = createFileRoute('/api/edit-jobs')({
           } catch (dispatchError) {
             const serialized = serializeError(dispatchError)
             const finishedAt = new Date()
+
+            logger.error('[intake] dispatch failed', {
+              jobId: createdJob.id,
+              errorCode: serialized.code,
+              errorMessage: serialized.message,
+            })
 
             await repository.updateLifecycle(createdJob.id, {
               status: EditJobStatus.failed,

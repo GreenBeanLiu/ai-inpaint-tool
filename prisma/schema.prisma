@@ -25,6 +25,7 @@ model EditJob {
   maskImageUrl    String
   resultImageUrl  String?
   sourceMimeType  String?
+  maskMimeType    String?
   resultMimeType  String?
   width           Int?
   height          Int?
@@ -39,6 +40,9 @@ model EditJob {
   startedAt       DateTime?
   finishedAt      DateTime?
   events          EditJobEvent[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model EditJobEvent {

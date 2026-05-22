@@ -111,6 +111,21 @@ export function serializeError(error: unknown): {
   }
 }
 
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof ExternalServiceError) {
+    return (
+      error.status === 429 ||
+      error.status === 502 ||
+      error.status === 503 ||
+      error.status === 504
+    )
+  }
+  if (error instanceof AppError) {
+    return false
+  }
+  return true
+}
+
 export function toErrorResponse(error: unknown, fallbackMessage: string): Response {
   const serialized = serializeError(error)
   const message =
