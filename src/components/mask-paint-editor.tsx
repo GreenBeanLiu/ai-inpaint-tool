@@ -423,6 +423,9 @@ export function MaskPaintEditor({
   const historyIndexRef = useRef(0)
   const livePreviewTimeoutRef = useRef<number | null>(null)
   const maskOutputRequestIdRef = useRef(0)
+  const brushPreviewRef = useRef<HTMLDivElement | null>(null)
+  const canvasContextRef = useRef<CanvasRenderingContext2D | null>(null)
+  const isBrushCursorVisibleRef = useRef(false)
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE)
   const [brushMode, setBrushMode] = useState<BrushMode>('paint')
   const [dimensions, setDimensions] = useState<ImageDimensions | null>(null)
@@ -430,7 +433,7 @@ export function MaskPaintEditor({
   const [hasPaint, setHasPaint] = useState(false)
   const [historyLength, setHistoryLength] = useState(0)
   const [historyIndex, setHistoryIndex] = useState(0)
-  const [hoverPoint, setHoverPoint] = useState<Point | null>(null)
+  const [showBrushCursor, setShowBrushCursor] = useState(false)
   const [zoom, setZoom] = useState(MIN_ZOOM)
   const [panOffset, setPanOffset] = useState<Point>({ x: 0, y: 0 })
   const [isSpacePressed, setIsSpacePressed] = useState(false)
@@ -478,7 +481,7 @@ export function MaskPaintEditor({
     setHasPaint(false)
     setHistoryLength(0)
     setHistoryIndex(0)
-    setHoverPoint(null)
+    setShowBrushCursor(false)
     setZoom(MIN_ZOOM)
     setPanOffset({ x: 0, y: 0 })
     setIsPainting(false)
@@ -487,6 +490,8 @@ export function MaskPaintEditor({
     setIsSpacePressed(false)
     setExpandedPanel('brush')
     baseMaskImageRef.current = null
+    canvasContextRef.current = null
+    isBrushCursorVisibleRef.current = false
   }, [sourceUrl, initialMaskUrl])
 
   useEffect(() => {
@@ -494,6 +499,7 @@ export function MaskPaintEditor({
       if (livePreviewTimeoutRef.current != null) {
         window.clearTimeout(livePreviewTimeoutRef.current)
       }
+
     }
   }, [])
 
@@ -565,6 +571,7 @@ export function MaskPaintEditor({
       return
     }
 
+    canvasContextRef.current = context
     context.clearRect(0, 0, canvas.width, canvas.height)
     redrawCanvasFromHistory()
   }, [dimensions, stageSize])
@@ -639,7 +646,7 @@ export function MaskPaintEditor({
       return
     }
 
-    const context = canvas.getContext('2d')
+    const context = canvasContextRef.current
 
     if (!context) {
       return
@@ -677,8 +684,12 @@ export function MaskPaintEditor({
       return
     }
 
-    const context = canvas.getContext('2d')
-    const nextHasPaint = context ? canvasHasPaint(context, canvas) : false
+    const context = canvasContextRef.current
+    // Skip expensive GPU readback when we already know paint exists and aren't erasing
+    const needsPixelScan = !hasPaintRef.current || strokeBrushModeRef.current === 'erase'
+    const nextHasPaint = needsPixelScan
+      ? (context ? canvasHasPaint(context, canvas) : false)
+      : true
     hasPaintRef.current = nextHasPaint
     setHasPaint(nextHasPaint)
 
@@ -758,6 +769,10 @@ export function MaskPaintEditor({
 
     livePreviewTimeoutRef.current = window.setTimeout(() => {
       livePreviewTimeoutRef.current = null
+      // Skip if stroke is still active — finishInteraction will export on pen-up
+      if (activeStrokePointerIdRef.current != null) {
+        return
+      }
       const currentStrokeEntry = getCurrentStrokeEntry()
 
       if (!currentStrokeEntry) {
@@ -867,7 +882,7 @@ export function MaskPaintEditor({
 
     if (shouldStartPan) {
       event.preventDefault()
-      setHoverPoint(null)
+      hideBrushCursor()
       handleStartPan(event)
       return
     }
@@ -879,7 +894,7 @@ export function MaskPaintEditor({
       return
     }
 
-    const context = canvas.getContext('2d')
+    const context = canvasContextRef.current
 
     if (!context) {
       return
@@ -891,7 +906,7 @@ export function MaskPaintEditor({
       ? getRelativeStagePoint(stage, event, stageSize)
       : getCanvasPoint(canvas, event)
     const imagePoint = displayPointToImagePoint(displayPoint, dimensions, stageSize)
-    setHoverPoint(displayPoint)
+    moveBrushCursor(displayPoint)
     activeStrokePointerIdRef.current = event.pointerId
     strokePointsRef.current = [imagePoint]
     strokeBrushModeRef.current = isSecondaryEraseStroke ? 'erase' : brushMode
@@ -902,6 +917,28 @@ export function MaskPaintEditor({
     drawDisplayBrushDot(context, displayPoint, brushSize, strokeBrushModeRef.current)
     scheduleLiveMaskPreview()
     canvas.setPointerCapture(event.pointerId)
+  }
+
+  function moveBrushCursor(point: Point) {
+    if (brushPreviewRef.current) {
+      brushPreviewRef.current.style.left = `${point.x}px`
+      brushPreviewRef.current.style.top = `${point.y}px`
+      brushPreviewRef.current.style.display = 'block'
+    }
+    if (!isBrushCursorVisibleRef.current) {
+      isBrushCursorVisibleRef.current = true
+      setShowBrushCursor(true)
+    }
+  }
+
+  function hideBrushCursor() {
+    if (brushPreviewRef.current) {
+      brushPreviewRef.current.style.display = 'none'
+    }
+    if (isBrushCursorVisibleRef.current) {
+      isBrushCursorVisibleRef.current = false
+      setShowBrushCursor(false)
+    }
   }
 
   function handlePointerMove(event: PointerEvent<HTMLCanvasElement>) {
@@ -917,7 +954,7 @@ export function MaskPaintEditor({
       panPointerOriginRef.current
     ) {
       event.preventDefault()
-      setHoverPoint(null)
+      hideBrushCursor()
 
       const deltaX = event.clientX - panPointerOriginRef.current.x
       const deltaY = event.clientY - panPointerOriginRef.current.y
@@ -938,7 +975,7 @@ export function MaskPaintEditor({
     }
 
     if (stage && !isPointWithinElementBounds(stage, event)) {
-      setHoverPoint(null)
+      hideBrushCursor()
 
       if (activeStrokePointerIdRef.current === event.pointerId) {
         void finishInteraction(event)
@@ -951,7 +988,9 @@ export function MaskPaintEditor({
       ? getRelativeStagePoint(stage, event, stageSize)
       : getCanvasPoint(canvas, event)
     const imagePoint = displayPointToImagePoint(displayPoint, dimensions, stageSize)
-    setHoverPoint(displayPoint)
+
+    // Update cursor position directly via DOM — no React re-render
+    moveBrushCursor(displayPoint)
 
     if (
       activeStrokePointerIdRef.current !== event.pointerId ||
@@ -960,7 +999,7 @@ export function MaskPaintEditor({
       return
     }
 
-    const context = canvas.getContext('2d')
+    const context = canvasContextRef.current
 
     if (!context) {
       return
@@ -969,6 +1008,7 @@ export function MaskPaintEditor({
     event.preventDefault()
     const previousPoint = strokePointsRef.current[strokePointsRef.current.length - 1]
 
+    // Draw synchronously — canvas ops are GPU-accelerated and don't need throttling
     drawDisplayBrushStroke(
       context,
       imagePointToDisplayPoint(previousPoint, dimensions, stageSize),
@@ -976,7 +1016,7 @@ export function MaskPaintEditor({
       brushSize,
       strokeBrushModeRef.current,
     )
-    strokePointsRef.current = [...strokePointsRef.current, imagePoint]
+    strokePointsRef.current.push(imagePoint)
     scheduleLiveMaskPreview()
   }
 
@@ -1153,7 +1193,7 @@ export function MaskPaintEditor({
       : 100
   const brushPreviewSize = brushSize
   const showBrushPreview =
-    Boolean(stageSize && dimensions && hoverPoint && !isPanning && !isSpacePressed)
+    Boolean(stageSize && dimensions && showBrushCursor && !isPanning && !isSpacePressed)
   const canResetView = zoom > MIN_ZOOM || panOffset.x !== 0 || panOffset.y !== 0
   const brushModeLabel = brushMode === 'paint' ? 'Mark' : 'Erase'
   const brushPreviewChipSize = clampNumber(Math.round(brushSize * 0.3), 10, 34)
@@ -1181,7 +1221,7 @@ export function MaskPaintEditor({
       ref={sectionRef}
       tabIndex={0}
       onBlur={() => {
-        setHoverPoint(null)
+        hideBrushCursor()
         setIsSpacePressed(false)
       }}
       onKeyDown={handleEditorKeyDown}
@@ -1433,21 +1473,20 @@ export function MaskPaintEditor({
                       onPointerDown={handlePointerDown}
                       onPointerLeave={() => {
                         if (activeStrokePointerIdRef.current == null) {
-                          setHoverPoint(null)
+                          hideBrushCursor()
                         }
                       }}
                       onPointerMove={handlePointerMove}
                       onPointerUp={(event) => void finishInteraction(event)}
                     />
-                    {showBrushPreview && hoverPoint && dimensions ? (
+                    {showBrushPreview && dimensions ? (
                       <div
                         aria-hidden="true"
                         className="mask-editor-brush-preview"
                         data-mode={brushMode}
+                        ref={brushPreviewRef}
                         style={{
                           height: `${brushPreviewSize}px`,
-                          left: `${hoverPoint.x}px`,
-                          top: `${hoverPoint.y}px`,
                           width: `${brushPreviewSize}px`,
                         }}
                       />

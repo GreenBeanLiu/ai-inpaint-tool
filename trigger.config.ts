@@ -1,14 +1,16 @@
 import { defineConfig } from '@trigger.dev/sdk'
-
-const project = process.env.TRIGGER_PROJECT_REF?.trim()
-
-if (!project) {
-  throw new Error('TRIGGER_PROJECT_REF is required to run Trigger.dev tasks for this project.')
-}
+import { prismaExtension } from '@trigger.dev/build/extensions/prisma'
 
 export default defineConfig({
-  project,
+  project: 'proj_xlxnaonafajdgyslmorw',
   runtime: 'node',
   dirs: ['./trigger'],
   maxDuration: 300,
+  build: {
+    extensions: [
+      prismaExtension({
+        schema: './prisma/schema.prisma',
+      }),
+    ],
+  },
 })
